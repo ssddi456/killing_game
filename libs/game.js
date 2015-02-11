@@ -238,8 +238,6 @@ game.parse_stage = function( str ) {
   return ret;
 };
 
-// game.stages.forEach( game.parse_stage );
-
 game.set_actors = function( actors ) {
   this.actors = actors;
   this.grouped_actors = _.groupBy( this.actors ,function( actor ) {
@@ -299,4 +297,7 @@ game.end = function() {
   debug( 'end of game!!! survivers : ', survivers );
 };
 
+game.create = function() {
+  return Object.create(game);
+}
 module.exports = game;

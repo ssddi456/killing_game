@@ -24,6 +24,9 @@ util._extend(Actor.prototype,{
     skill = Object.create(skill);
     this['@' + skill.name ] = skill;
     skill.owner = this;
+  },
+  remove_skill : function( skill_name ) {
+    this['@' + skill_name ] = undefined;
   }
 });
 

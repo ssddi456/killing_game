@@ -56,5 +56,34 @@ Skill.vote  = new Skill({
   }
 });
 
+Skill.pc_speak = new Skill({
+  name : 'speak',
+  cast : function( targets, done) {
+    this.owner.sck
+      .to(this.owner.room)
+      .emit('my name is '+ this.owner.name);
+    done();
+  }
+});
+
+Skill.pc_vote  = new Skill({
+  name : 'vote',
+  cast : function( targets, done ) {
+    var self = this;
+    var socket = this.owner.sck;
+    var vote_timer;
+    var timeout = 15*1e3;
+    socket.emit('start_vote',targets);
+    socket.on('voted',function( target ) {
+      target.temp_effect.push(self);
+      clearTimeout(vote_timer);
+      done();
+    });
+    vote_timer = setTimeout(function() {
+      socket.removeAllListener('voted');
+      done();
+    },timeout);
+  }
+});
 
 module.exports= Skill;

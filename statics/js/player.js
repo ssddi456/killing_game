@@ -11,9 +11,6 @@ define([
     // play as role
     this.role = ko.observable('police');
 
-    // boolean
-    this.is_dead = ko.observable(false);
-
     // pos
     this.room = ko.observable('hall');
 

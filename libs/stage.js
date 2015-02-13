@@ -1,4 +1,6 @@
+
 var util = require('util');
+var debug = require('debug')('killing_game:stage');
 var _ = require('lodash');
 var async = require('async');
 
@@ -16,21 +18,29 @@ function Stage ( optn ) {
   this.can_not_active_in = [];
   this.can_not_be_vote_in= [];
   this.skill             = 'vote';
+  debug('new stage', optn );
   util._extend(this,optn);
 }
 
 util._extend(Stage.prototype,{
   settle : function( target ) {
     target.tags.push('dead');
-    console.log('actor dead!!!');
-    console.log( target );
+    debug('actor dead!!!');
+    debug( target );
   },
   get_can_active : function( actors ) {
     var self = this;
     return actors.filter(function( actor ) {
-      if( _.intersection( actor.tags, self.can_not_active_in ).length ){
+      debug('check can active', actor.tags, self.can_not_active_in, self.can_active_in);
+      if( self.can_not_active_in 
+        && self.can_not_active_in.length 
+        && _.intersection( actor.tags, self.can_not_active_in ).length 
+      ){
         return false;
-      } else if( _.intersection( actor.tags, self.can_actives_in ) ){
+      } else if( !self.can_active_in 
+        || !self.can_active_in.length
+        || _.intersection( actor.tags, self.can_active_in ).length 
+      ){
         return actor;
       }
     });
@@ -38,6 +48,7 @@ util._extend(Stage.prototype,{
   get_can_be_vote: function( actors ) {
     var self = this;
     return actors.filter(function( actor ) {
+      debug('check can be vote', actor.tags, self.can_not_be_vote_in);
       if( _.intersection( actor.tags, self.can_not_be_vote_in ).length ){
         return false;
       } else {
@@ -45,10 +56,15 @@ util._extend(Stage.prototype,{
       }
     }); 
   },
-  act : function( actors, game, done ) {
-    var actors = this.get_can_active(actors);
+  act : function( all_actors, game, done ) {
+    var actors = this.get_can_active(all_actors);
 
-    console.log('actors', actors.length );
+    debug('actors', 
+      actors.length, 
+      actors.map(function(actor) {
+        return [actor.id,actor.tags];
+      }) 
+    );
 
     if( !actors.length ){
       done();
@@ -68,10 +84,15 @@ util._extend(Stage.prototype,{
       return;
     } 
     else if( skill == 'vote' ){
-      var can_be_votes = this.get_can_be_vote(actors);
+      var can_be_votes = this.get_can_be_vote(all_actors);
       async.whilst(function() {
         if( can_be_votes.length <= 1 ){
-          console.log('can_be_votes', can_be_votes );
+          debug(
+            'can_be_votes', 
+            can_be_votes.map(function(actor) {
+              return [actor.id,actor.tags];
+            })
+          );
         }
         return can_be_votes.length > 1;
       },function( done ) {
@@ -82,7 +103,7 @@ util._extend(Stage.prototype,{
         // vote
         async.each(actors,function( actor, done) {
           actor.act( skill, can_be_votes, done );
-        },function() {
+        },function(){
           var grouped = _.groupBy(can_be_votes,
                           function( actor ) {
                             return actor.temp_effect.length;
@@ -92,7 +113,7 @@ util._extend(Stage.prototype,{
           done();
         });
       },function() {
-        self.settle( can_be_votes[0] );
+        can_be_votes.length && self.settle( can_be_votes[0] );
         done();
       });
     }

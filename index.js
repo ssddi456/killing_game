@@ -1,3 +1,4 @@
+process.env.DEBUG = 'killing_game:*';
 var path = require('path');
 
 var io = require('socket.io');
@@ -8,6 +9,7 @@ var app = express();
 var http = require('http');
 var server = http.Server(app);
 
+var debug = require('debug')('killing_game:main');
 
 var game = require('./libs/game');
 var actor = require('./libs/actor');
@@ -50,13 +52,36 @@ function get_public_rooms() {
           });
 }
 
-function get_roommates( room, self ) {
-  try{
-    return game_infos.get_players_by_sckid(
-            Object.keys(io.sockets.adapter.rooms[room]));
-  }catch(e){
-    return [];
+function get_roommates ( room ) {
+  var room = room_exists(room);
+    return room 
+            ? game_infos.get_players_by_sckid(
+                Object.keys(room))
+            : [];
+}
+function get_roomplayers (room) {
+  var room = room_exists(room) || [];
+  return Object.keys(room)
+          .map(function( key ) {
+            return game_infos.get_player_by_sckid(key);
+          });
+}
+function room_exists ( room ) {
+  var adapter = io.sockets.adapter
+  return adapter.rooms && adapter.rooms[room];
+}
+function broadcast_player_stat ( room ) {
+  var players = get_roomplayers(room);
+  debug('-------- sync player state -------');
+  if( players.length ){
+    debug( room, 'exists');
+    players.forEach(function( player ) {
+      debug('sync player states', player.id);
+      player.sck.emit('list_roommates',
+        players.map(player.see.bind(player)));
+    });
   }
+  debug('-------- sync player state end -------');
 }
 function sync_room_stats(room) {
   io.to(room)
@@ -171,29 +196,84 @@ io.on('connection',function( socket ) {
   });
 
   socket.on('start_game',function( e ) {
-    var roommates = get_roommates(player.room);
+    var room = player.room;
+    var roommates = get_roomplayers(room);
     if( player.is_roommaster 
       && roommates
           .filter(function( mate ) {
-            return !mate.is_roommaster && mate.is_ready;
-          })
+            return !mate.is_roommaster && !mate.is_ready;
+          }).length == 0
     ){
-      io.to(e.room).emit('game_start');
       var game_instance = game.create();
-      
-      game.set_actors(
-        roommates.map(function( mate ){
-          var pc = new actor( mate );
-          pc.remove_skill('vote');
-          pc.remove_skill('speak');
+      var actors = ['killer',
+                    'police',
+                    'actor',
+                    'actor',
+                    'actor',
+                    'killer',
+                    'doctor',
+                    'police'];
+      var game_actors = roommates.map(function( mate ){
+        var pc = new actor( mate );
+        pc.player = mate;
+        pc.role = mate.role = actors.shift();
+        pc.get_stat = mate.get_stat;
+        pc.tags.push( pc.role );
+        mate.tags = pc.tags;
+        debug('new pc', pc.id, pc.tags );
+        pc.remove_skill('vote');
+        pc.remove_skill('speak');
 
-          pc.add_skill();
-          pc.add_skill();
+        pc.add_skill(skill.pc_vote({
+          effect : function( target ) {
+            if( !target ){
+              return;
+            }
+            target = game_actors.filter(function( actor) {
+              return actor.id == target.id;
+            })[0];
+            target.temp_effect.push(pc);
+          }
         }));
-      game.run();
-      game.end = function() {
+
+        pc.add_skill(skill.pc_speak({
+          effect : function( message ) {
+            io.to(room).emit('speak', message);
+          }
+        }));
+
+        return pc;
+      });
+      game_instance.command.call = function( done, key ) {
+        var infos;
+        if( typeof this.call_info[key] == 'function' ){
+          infos = this.call_info[key](this);
+        } else {
+          infos = this.call_info[key];
+        }
+        io.to(room).emit('speak', infos);
+        setTimeout(done,1e3);
+      };
+
+      game_instance.set_actors(game_actors);
+      game_instance.on_end = function( survivers ) {
         socket.emit('game_end');
-      }
+      };
+
+      game_instance.on_stage_end = function() {
+        debug(' stage name ', this.stages[this.stage_cursor] );
+        debug(' stage end  ', this.stage_cursor);
+        debug(' turns end  ', this.turns);
+        if( this.stages[this.stage_cursor]  == 'sunrise'
+          || this.stages[this.stage_cursor] == '#call::nights' 
+        ){
+          broadcast_player_stat( room );
+        }
+      };
+
+      game_instance.init();
+      io.to(room).emit('game_start');
+      game_instance.run();
     } else {
       socket.emit('start_game_fail');
     }

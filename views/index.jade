@@ -1,5 +1,6 @@
+h1(data-bind="text: page")
+
 div(data-bind="page : 'hall'")
-  h1 hall
   p(data-bind="text: rooms().length")
   button(data-bind="hooked_click: make_room") make room
   table.table
@@ -12,9 +13,10 @@ div(data-bind="page : 'hall'")
 div(data-bind="page : 'room'")
   h1(data-bind="text: room_name")
   button(data-bind="hooked_click: leave_room") leave room
+  |  
   // ko if : me
   // ko if : !me().is_roommaster()
-  button(data-bind="hooked_click: ready_for_game,\
+  button(data-bind="click: ready_for_game,\
                     text: me().is_ready() ? 'cancel' : 'ready for game'")
   // /ko
   // ko if : me().is_roommaster()
@@ -29,6 +31,32 @@ div(data-bind="page : 'room'")
         td(data-bind="text: id")
         td(data-bind="text: is_roommaster ? '房主' : '' ")
         td(data-bind="text: role ")
+
+div(data-bind="page:'speak'")
+  div
+    textarea(data-bind="value:speak_somethings")
+    button(data-bind="click:send")
+    button(data-bind="click:cancel_send")
+
+div(data-bind="page:'vote'")
+  table.table
+    tbody(data-bind="foreach : votes_targets ")
+      tr
+        td(data-bind="if: id == $root.me.id")
+          | ★
+        td(data-bind="text: id")
+        td(data-bind="text: is_roommaster ? '房主' : '' ")
+        td(data-bind="text: role ")
+        td
+          button(data-bind='click:$root.send') vote this guy!
+  p
+    button(data-bind='click:cancel_send') give up..
+
+div
+  h2 message 
+  div(data-bind="foreach: messages")
+    div(data-bind="text: $data")
+
 
 script(src="/socket.io/socket.io.js")
 script(src="http://cdn.staticfile.org/knockout/3.2.0/knockout-min.js")

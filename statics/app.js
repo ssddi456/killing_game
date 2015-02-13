@@ -1,22 +1,24 @@
 require([
+  './js/lock',
   './js/player',
   './js/bindings'
 ],function(
+  lock,
   player,
   bindings
 ){
  
 
   var socket = io.connect('http://localhost:8027');
-  var vm = {};
+  vm = {};
 
   socket.on('error',function() {
     console.error( arguments );
   });
 
   socket.on('stat',function( me ) {
-    if( !vm.me() ){
-      vm.me(new player( socket.id ));
+    if( !vm.me || vm.me() ){
+      (vm.me = vm.me || ko.observable())(new player( socket.id ));
       vm.me().sync(me);
       if( me.room != 'hall' ){
         socket.emit('join_room',{room : me.room});
@@ -33,6 +35,7 @@ require([
 
   vm.room_name = ko.observable();
   vm.roommates = ko.observableArray([]);
+  vm.messages = ko.observableArray([]);
 
   vm.before_click = function(){
     var me = vm.me();
@@ -84,13 +87,92 @@ require([
     vm.roommates.removeAll();
     roommates.forEach(function( man ) {
       vm.roommates.push(man); 
+      var me = vm.me();
+      if( man.id == me.id ){
+        me.sync(man);
+      }
     });
   });
 
-  socket.on('leave_room',function() {
+  socket.on('leave_room', function() {
     vm.page('hall');
     vm.roommates.removeAll();
   });
+
+  socket.on('speak', function( msg ) {
+    vm.messages.push(msg);
+  });
+
+  function on_skill( name, handlers ) {
+    socket.on( 'start_@' + name,function( datas ) {
+      handlers.start(datas, function( err, res ) {
+        if( err) {
+          socket.emit('cancel_@' + name );
+        } else {
+          socket.emit('@' + name, res);
+        }
+      });
+    });
+    socket.on('end_@' + name,
+      handlers.finish.bind(handlers));
+  }
+
+  on_skill('speak',
+    {
+      start  : function( nss, done) {
+        this.prev_page = vm.page();
+        var _lock = lock();
+        var end = _lock(function() {
+          _lock.lock();
+          done.apply(null,arguments);
+        });
+
+        vm.send = _lock(function() {
+                    end( null, vm.speak_somethings() );
+                  });
+        vm.cancel_send =_lock(function() {
+                          end( 'canceled' );
+                        });
+        vm.page('speak');
+      },
+      finish :function() {
+        vm.page(this.prev_page);
+        vm.speak_somethings('');
+        // gc reference;
+        vm.send =
+        this.prev_page = 
+        vm.cancel_send = null;
+      }
+    });
+
+  on_skill('vote',
+    {
+      start  : function( targets, done ) {
+        var _lock = lock();
+        var end = _lock(function() {
+          _lock.lock();
+          done.apply(null,arguments);
+        });
+        vm.votes_targets = ko.observableArray(targets);
+
+        vm.send = _lock(function( $data ) {
+                    end( null, $data );
+                  });
+        vm.cancel_send =_lock(function() {
+                          end( 'canceled' );
+                        });
+        
+        this.prev_page = vm.page();
+        vm.page('vote');
+      },
+      finish :function() {
+        vm.page( this.prev_page );
+        this.prev_page =
+        vm.votes_targets =
+        vm.send =
+        vm.cancel_send = null;
+      }
+    });
 
   ko.applyBindings(vm);
 });

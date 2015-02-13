@@ -1,3 +1,5 @@
+var debug = require('debug')('killing_game:player');
+
 var player = module.exports = function( ssid, sck ) {
   // boolean
   this.is_roommaster = false;
@@ -7,9 +9,6 @@ var player = module.exports = function( ssid, sck ) {
   // police
   // xxx
   this.role = 'unknown';
-
-  // boolean
-  this.is_dead = false;
 
   // pos
   this.room = 'hall';
@@ -25,7 +24,7 @@ var player = module.exports = function( ssid, sck ) {
   // handle sck for send changing message
   this.sck = sck;
 
-  this.tag = [];
+  this.tags = [];
 };
 
 var pp = player.prototype;
@@ -44,7 +43,6 @@ pp.go_to_ob = function() {
   }
   this.is_ob    = true;
   this.is_ready = false;
-  this.is_dead  = false;
   this.role     = 'observer';
   this.send_stat();
 }
@@ -57,15 +55,15 @@ pp.send_stat = function() {
 };
 
 pp.get_stat = function() {
-  console.log('check info', this.id );
+  debug('check info', this.id );
   return {
     is_roommaster : this.is_roommaster,
     role          : this.role,
-    is_dead       : this.is_dead,
     room          : this.room,
     is_ready      : this.is_ready,
     is_ob         : this.is_ob,
-    id            : this.id
+    id            : this.id,
+    tags          : this.tags,
   };
 };
 
@@ -73,15 +71,44 @@ pp.see = function( another ) {
   var stat = another.get_stat 
               ? another.get_stat() 
               : another;
-  if( this.is_ob 
-    || this.is_dead
-    || another.is_dead
-    || another.is_ob
-    ||(another.tag.indexOf('know_by_police')
-      && this.role == 'police' )
-  ){
-    return stat
+
+  debug('check tags', this.tags, another.tags );
+  debug('check role', this.role, another.role );
+  debug( ' - will see', stat.role );
+  debug( this.id, another.id );
+  debug( ' - is_ob', this.is_ob, another.is_ob );
+
+  debug( ' - is_dead', 
+    this.tags.indexOf('dead') != -1
+    && another.tags.indexOf('dead') != -1 );
+
+  debug( ' - not actor', 
+    this.role == another.role 
+    && this.role != 'actor' );
+
+  debug( ' - inspected', 
+    another.tags.indexOf('known_by_police') != -1
+    && this.role == 'police' );
+
+  debug( ' - same person', 
+    this.id == another.id);
+
+  var inbrief = this.is_ob 
+                || another.is_ob
+                || this.tags.indexOf('dead') != -1
+                || another.tags.indexOf('dead') != -1
+                || (this.role == another.role 
+                  && this.role != 'actor')
+                || (another.tags.indexOf('known_by_police') != -1
+                  && this.role == 'police' )
+                || this.id == another.id;
+
+  debug(' - inbrief', inbrief  );
+
+  if( inbrief ){
+  } else {
+    stat.role = 'unknown';
   }
-  stat.role = 'unknown';
+
   return stat;
 }

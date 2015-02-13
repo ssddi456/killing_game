@@ -1,5 +1,6 @@
 var util = require('util');
 var skill = require('./skill');
+var debug = require('debug')('killing_game:actor');
 
 function Actor (opt) {
   this.name = 'stupid actor';

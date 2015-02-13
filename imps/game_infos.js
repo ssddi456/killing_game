@@ -1,3 +1,5 @@
+var debug = require('debug')('killing_game:game_info');
+
 var storage = require('../libs/storage');
 
 var player = require('../libs/player');
@@ -20,7 +22,6 @@ game_info.get_player_by_sck = function( ssid, sck ) {
 
 game_info.get_player_by_sckid = function( sckid ) {
   var ssid = pairs[sckid];
-  console.log( sckid, ssid);
   return this.get_player_by_ssid(ssid);
 };
 

@@ -1,14 +1,14 @@
 var stage = require('./stage');
 var actor = require('./actor');
 var _ = require('lodash');
-var debug = require('debug')('game');
+var debug = require('debug')('killing_game:game');
 
 var stages =  [
                 '#call::nights',
                 '#call::killers',
                 'killers',
-                // '#call::polices',
-                // 'polices',
+                '#call::polices',
+                'polices',
                 '#call::doctors',
                 'doctors',
                 '#call::day',
@@ -78,13 +78,12 @@ game.command = {
     done();
   },
   end  : function( done ) {
-    this.stage_cursor = this.stages.length - 1;
+    this.stage_cursor = this.stages.length - 2;
     done();
   }
 };
 game.stage_sets ={
   killers    : {
-
     can_active_in : ['killer'],
     can_not_active_in : ['dead'],
     can_not_be_vote_in : ['killer','dead'],
@@ -93,16 +92,14 @@ game.stage_sets ={
     }
   },
   polices    : {
-
     can_active_in : ['police'],
     can_not_active_in : ['dead'],
     can_not_be_vote_in : ['police','dead','known_by_police'],
     settle : function( target ) {
-      target.tag.push('known_by_police');
+      target.tags.push('known_by_police');
     }
   },
   doctors    : {
-
     can_active_in : ['doctor'],
     can_not_active_in : ['dead'],
     can_not_be_vote_in : ['doctor','dead'],
@@ -146,30 +143,21 @@ game.stage_sets ={
     }
   },
   new_deads  : {
-
     can_active_in : ['first_dead']
-
   },
 
   discribe   : {
-
     skill : 'speak',
     can_not_active_in : ['dead'],
   },
 
   judgements      : {
-
     can_not_active_in : ['dead'],
     can_not_be_vote_in : ['doctor','dead']
-
   }
 };
 
-(function(){
-  for(var _stage_name in game.stage_sets ){
-    game.stage_sets[_stage_name] = new stage(game.stage_sets[_stage_name]);
-  }
-})();
+
 
 game.call_info = {
   nights    : '天黑请闭眼',
@@ -193,7 +181,7 @@ game.call_info = {
 };
 game.parse_stage = function( str ) {
   var ret;
-  debug( str );
+  debug('stage', str );
   var self = this;
   str.replace(/^(#([^#:]+)(#(.+)|::(.+))?)|([^#:]+)$/,
     function(
@@ -252,7 +240,6 @@ game.set_actors = function( actors ) {
                           return 'non_killer';
                         });
 }
-
 game.stage_cursor = 0;
 game.stage_count = stages.length;
 game.turns       = 0;
@@ -271,21 +258,11 @@ game.next_stage = function () {
   var stage = this.get_stage();
   if( stage ){
     stage(function() {
+      self.on_stage_end();
       self.next_stage();
-    })
+    });
   } else {
     this.end();
-  }
-};
-
-game.run = function() {
-  debug('start of game!!!');
-  var stage = this.get_stage();
-  var self = this;
-  if( stage ){
-    stage(function() {
-      self.next_stage();
-    })
   }
 };
 
@@ -295,9 +272,49 @@ game.end = function() {
   });
   debug( 'finish @ round ', this.turns );
   debug( 'end of game!!! survivers : ', survivers );
+  this.on_end( survivers );
 };
-
 game.create = function() {
-  return Object.create(game);
+  var ret       = Object.create(game);
+  ret.stages    = Object.create(game.stages);
+  ret.command   = Object.create(game.command);
+  ret.call_info = Object.create(game.call_info);
+  ret.stage_sets= Object.create(game.stage_sets);
+
+  var _temp,stage_set;
+  for(var _stage_name in ret.stage_sets ){
+    _temp = {};
+    stage_set = ret.stage_sets[_stage_name];
+    for(var pp in stage_set){
+      if( stage_set.hasOwnProperty(pp)){
+        _temp[pp] = stage_set[pp];
+      }
+    }
+    ret.stage_sets[_stage_name] = _temp;
+  }
+  
+
+  ret.init= function(){
+    for(var _stage_name in this.stage_sets ){
+      this.stage_sets[_stage_name] = new stage(this.stage_sets[_stage_name]);
+    }
+  };
+
+  ret.on_stage_end = 
+  ret.on_end = function( survivers ){};
+
+  ret.run = function() {
+    debug('start of game!!!');
+    var stage = this.get_stage();
+    var self = this;
+    if( stage ){
+      stage(function() {
+        ret.on_stage_end();
+        self.next_stage();
+      });
+    }
+  };
+
+  return ret;
 }
 module.exports = game;

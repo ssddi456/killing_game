@@ -1,0 +1,16 @@
+.page(data-bind="page:'vote'")
+  .page-header
+  .page-body
+    table.table
+      tbody(data-bind="foreach : votes_targets ")
+        tr
+          td(data-bind="if: id == $root.me.id")
+            | ★
+          td(data-bind="text: id")
+          td(data-bind="text: is_roommaster ? '房主' : '' ")
+          td(data-bind="text: role ")
+          td
+            button(data-bind='click:$root.send') vote this guy!
+  .page-footer
+    button(data-bind='click:cancel_send') give up..
+

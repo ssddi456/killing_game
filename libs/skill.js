@@ -71,9 +71,10 @@ Skill.create_pc_action = function( optns ) {
       var player = this.owner.player;
       var socket = this.owner.sck;
       var vote_timer;
-      var timeout = 15*1e3;
+      var timeout = 60*1e3;
       var effect_cache;
       function end () {
+        debug('end skill', name);
         clearTimeout(vote_timer);
         socket.emit('end_@' + name);
         socket.removeAllListeners('@' + name);
@@ -82,6 +83,7 @@ Skill.create_pc_action = function( optns ) {
         done();
         end = function() {}
       }
+      debug('start skill', name);
       socket.emit('start_@' + name,
         targets.map(function( target ) {
           return player.see( target );
@@ -118,10 +120,10 @@ Skill.pc_speak = function( optns ) {
   delete optns.name;
   var options = {
                   name : 'speak',
-                  cast : function( targets, done) {
+                  effect : function( message ) {
                     this.owner.sck
                       .to(this.owner.room)
-                      .emit('my name is '+ this.owner.name);
+                      .emit('speak', message);
                     done();
                   }
                 };

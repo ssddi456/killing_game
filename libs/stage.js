@@ -77,6 +77,7 @@ util._extend(Stage.prototype,{
       done();
       return;
     }
+    debug('act skill', skill);
     if( skill == 'speak' ){
       async.eachSeries( actors,function( actor, done ) {
         actor.act( skill, actors, done );

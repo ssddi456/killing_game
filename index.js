@@ -1,6 +1,9 @@
 process.env.DEBUG = 'killing_game:*';
 var path = require('path');
-
+var fs = require('fs');
+var path = require('path');
+var url = require('url');
+var less = require('less');
 var io = require('socket.io');
 
 var express = require('express');
@@ -19,7 +22,29 @@ var game_infos = require('./imps/game_infos');
 
 app.set('view engine','jade');
 app.set('views', path.join(__dirname,'./views'));
-app.use(express.static(__dirname + '/statics'));
+var static_path = __dirname + '/statics';
+app.get('*.less',function( req, resp, next ) {
+  
+  var file = path.join(static_path,url.parse(req.url).pathname);
+  fs.readFile( file, 'utf8', function(err, code) {
+    if(err){
+      return next(err);
+    }
+    less.render(code,
+      { 
+        filename : path.basename(file),
+        paths    : [path.dirname(file)]
+      },
+      function(err, tree) {
+        
+        err
+          ? (console.log(err),next(err))
+          : resp.end( tree && tree.css );
+      });
+  })
+});
+
+app.use(express.static(static_path));
 
 var bodyParser = require('body-parser');
 app.use(bodyParser());
@@ -44,51 +69,33 @@ app.get('/', function( req, resp ){
 
 
 var default_channel = 'hall';
-var public_room_prefix = 'killing_room_';
-function get_public_rooms() {
-  return Object.keys(io.sockets.adapter.rooms)
-          .filter(function( k ) {
-            return k.indexOf(public_room_prefix) == 0;
-          });
-}
+var public_room_prefix = game_infos.public_room_prefix;
 
-function get_roommates ( room ) {
-  var room = room_exists(room);
-    return room 
-            ? game_infos.get_players_by_sckid(
-                Object.keys(room))
-            : [];
-}
-function get_roomplayers (room) {
-  var room = room_exists(room) || [];
-  return Object.keys(room)
-          .map(function( key ) {
-            return game_infos.get_player_by_sckid(key);
-          });
-}
-function room_exists ( room ) {
-  var adapter = io.sockets.adapter
-  return adapter.rooms && adapter.rooms[room];
-}
+
 function broadcast_player_stat ( room ) {
-  var players = get_roomplayers(room);
+  var players = game_infos.get_roomplayers(room);
+  var pcs     = game_infos.get_room_pcplayers(room);
   debug('-------- sync player state -------');
   if( players.length ){
     debug( room, 'exists');
-    players.forEach(function( player ) {
+    pcs.forEach(function( player ) {
       debug('sync player states', player.id);
-      player.sck.emit('list_roommates',
-        players.map(player.see.bind(player)));
+      var player_maped = players.map(player.see.bind(player));
+      debug('player_maped', player_maped, player_maped.length );
+      player.sck.emit('list_roommates', player_maped);
     });
   }
   debug('-------- sync player state end -------');
 }
+
 function sync_room_stats(room) {
   io.to(room)
     .emit('list_roommates',
-      get_roommates(room));
+      game_infos.get_roommates(room));
 }
+
 io = io(server);
+game_infos.host( io.sockets.adapter );
 io.set('authorization',function( req, next ) {
   var fake_res = {};
   session_handler( req, fake_res, function() {
@@ -129,7 +136,7 @@ io.on('connection',function( socket ) {
     return socket.__proto__.join.apply(this,arguments);
   };
   socket.leave = function( room ) {
-    return socket.__proto__.join.apply(this,arguments);
+    return socket.__proto__.leave.apply(this,arguments);
   };
 
   socket.on('join_room',function( e ){
@@ -139,7 +146,7 @@ io.on('connection',function( socket ) {
     socket.join(e.room);
     socket.emit('enter_room', e.room);
     io.to(e.room)
-      .emit('list_roommates',get_roommates(e.room));
+      .emit('list_roommates',game_infos.get_roommates(e.room));
   });
 
   socket.on('make_room',function( e ) {
@@ -151,28 +158,35 @@ io.on('connection',function( socket ) {
     player.is_roommaster = true;
 
     io.to(default_channel)
-      .emit('list_rooms',get_public_rooms());
+      .emit('list_rooms',game_infos.get_public_rooms());
 
     socket
       .emit( 'enter_room', new_room_key )
-      .emit( 'list_roommates', get_roommates(new_room_key, socket.id));
+      .emit( 'list_roommates', game_infos.get_roommates(new_room_key, socket.id));
   });
 
   socket.on('leave_room',function( e ) {
     var room = e.room;
     player.is_roommaster = false;
 
-    if( io.sockets.adapter.rooms[room] ){
+    if( game_infos.room_exists(room) ){
+      debug( 'player leave', player.id, room );
       socket.leave(room);
       io.to(room)
         .emit('player_leave', socket.id)
-        .emit('list_roommates', get_roommates(room))
+        .emit('list_roommates', game_infos.get_roommates(room))
+    } else {
+      debug( 'player leave', room, 'not exists');
     }
 
     socket.join(default_channel);
     socket.emit('leave_room');
-    io.to(default_channel)
-      .emit('list_rooms',get_public_rooms());
+    io.to(socket.id)
+      .emit('list_rooms',game_infos.get_public_rooms());
+    setTimeout(function() {
+      debug('list_rooms', game_infos.get_public_rooms());
+      debug('roommates', game_infos.get_roommates(room));
+    })
   });
 
   socket.on('change_stat',function( e ) {
@@ -197,7 +211,7 @@ io.on('connection',function( socket ) {
 
   socket.on('start_game',function( e ) {
     var room = player.room;
-    var roommates = get_roomplayers(room);
+    var roommates = game_infos.get_roomplayers(room);
     if( player.is_roommaster 
       && roommates
           .filter(function( mate ) {
@@ -205,6 +219,9 @@ io.on('connection',function( socket ) {
           }).length == 0
     ){
       var game_instance = game.create();
+      game_infos.start_game( room, game_instance );
+
+      var shuffle = require('./libs/shuffle');
       var actors = ['killer',
                     'police',
                     'actor',
@@ -213,36 +230,51 @@ io.on('connection',function( socket ) {
                     'killer',
                     'doctor',
                     'police'];
-      var game_actors = roommates.map(function( mate ){
-        var pc = new actor( mate );
-        pc.player = mate;
-        pc.role = mate.role = actors.shift();
-        pc.get_stat = mate.get_stat;
-        pc.tags.push( pc.role );
-        mate.tags = pc.tags;
-        debug('new pc', pc.id, pc.tags );
-        pc.remove_skill('vote');
-        pc.remove_skill('speak');
 
-        pc.add_skill(skill.pc_vote({
-          effect : function( target ) {
-            if( !target ){
-              return;
+      actors = shuffle(actors.slice(0,6));
+      debug('actors', actors);
+
+      var game_actors = actors.map(function( role, i ){
+        mate = roommates[i];
+        if(mate){
+          var pc = new actor( mate );
+          pc.player = mate;
+          pc.role = mate.role = role;
+
+          pc.tags.push( pc.role );
+          mate.tags = pc.tags;
+
+          debug('new pc', pc.id, pc.tags );
+
+          pc.remove_skill('vote');
+          pc.remove_skill('speak');
+
+          pc.add_skill(skill.pc_vote({
+            effect : function( target ) {
+              if( !target ){
+                return;
+              }
+              target = game_actors.filter(function( actor) {
+                return actor.id == target.id;
+              })[0];
+              target.temp_effect.push(pc);
             }
-            target = game_actors.filter(function( actor) {
-              return actor.id == target.id;
-            })[0];
-            target.temp_effect.push(pc);
-          }
-        }));
+          }));
 
-        pc.add_skill(skill.pc_speak({
-          effect : function( message ) {
-            io.to(room).emit('speak', message);
-          }
-        }));
-
-        return pc;
+          pc.add_skill(skill.pc_speak({
+            effect : function( message ) {
+              io.to(room).emit('speak', message);
+            }
+          }));
+          return pc;
+        } else {
+          var npc = new actor();
+          npc.id = 'npc '+ random_data.String(8);
+          npc.role = role;
+          npc.tags.push(role);
+          npc.tags.push('npc');
+          return npc;
+        }
       });
       game_instance.command.call = function( done, key ) {
         var infos;
@@ -258,6 +290,13 @@ io.on('connection',function( socket ) {
       game_instance.set_actors(game_actors);
       game_instance.on_end = function( survivers ) {
         socket.emit('game_end');
+        game_infos.end_game(room);
+        game_infos.get_roomplayers( room )
+          .forEach(function( player ) {
+            player.reset();
+          });
+
+        broadcast_player_stat( room );
       };
 
       game_instance.on_stage_end = function() {

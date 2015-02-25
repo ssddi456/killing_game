@@ -1,6 +1,7 @@
 var util = require('util');
 var skill = require('./skill');
 var debug = require('debug')('killing_game:actor');
+var player = require('./player');
 
 function Actor (opt) {
   this.name = 'stupid actor';
@@ -21,6 +22,9 @@ util._extend(Actor.prototype,{
   is : function( tag ) {
     return ~this.tags.indexOf(tag);
   },
+  is_not : function(tag) {
+    return !~this.tags.indexOf(tag);
+  },
   add_skill : function( skill ) {
     skill = Object.create(skill);
     this['@' + skill.name ] = skill;
@@ -28,7 +32,8 @@ util._extend(Actor.prototype,{
   },
   remove_skill : function( skill_name ) {
     this['@' + skill_name ] = undefined;
-  }
+  },
+  get_stat : player.prototype.get_stat
 });
 
 

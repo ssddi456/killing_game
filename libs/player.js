@@ -9,7 +9,7 @@ var player = module.exports = function( ssid, sck ) {
   // police
   // xxx
   this.role = 'unknown';
-
+  this.name = '';
   // pos
   this.room = 'hall';
 
@@ -46,7 +46,11 @@ pp.go_to_ob = function() {
   this.role     = 'observer';
   this.send_stat();
 }
-
+pp.reset = function() {
+  this.tags.length = 0;
+  this.role = 'unknown';
+  this.is_ready = false;
+};
 pp.send_fail = function( message ) {
   this.sck.emit('fail', message);
 };
@@ -57,11 +61,11 @@ pp.send_stat = function() {
 pp.get_stat = function() {
   debug('check info', this.id );
   return {
-    is_roommaster : this.is_roommaster,
-    role          : this.role,
-    room          : this.room,
-    is_ready      : this.is_ready,
-    is_ob         : this.is_ob,
+    is_roommaster : this.is_roommaster || false,
+    role          : this.role || '',
+    room          : this.room || '',
+    is_ready      : this.is_ready || false,
+    is_ob         : this.is_ob || false,
     id            : this.id,
     tags          : this.tags,
   };
@@ -108,7 +112,10 @@ pp.see = function( another ) {
   if( inbrief ){
   } else {
     stat.role = 'unknown';
+    stat.tags = ['unknown'];
   }
+
+  debug( 'end see', stat.tags );
 
   return stat;
 }

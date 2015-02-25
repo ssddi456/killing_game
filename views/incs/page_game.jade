@@ -1,0 +1,22 @@
+.page(data-bind="page:'game'")
+  .page-header
+    h1(data-bind="text: room_name")
+  .page-body
+    div(data-bind="css:{night:night}")
+      .players
+        div(data-bind="foreach : players ")
+          .player
+            .content
+              span(data-bind="if: (id + '') == $root.me().id")
+                | ★
+              span(data-bind="text: id")
+              span(data-bind="text: tags ")
+        .sun_and_moon
+          .shadow
+          each k in '12345678'
+            .star
+              .edges
+                each i in '1234'
+                  .edge
+
+  .page-footer

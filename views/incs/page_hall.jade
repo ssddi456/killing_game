@@ -1,0 +1,18 @@
+.page(data-bind="page : 'hall'")
+  .page-header
+    .pull-right
+      span
+        | 房间数目：
+        span(data-bind="text: rooms().length")
+      button(data-bind="hooked_click: make_room") make room
+
+  .page-body
+    .rooms(data-bind="foreach: rooms")
+      .room
+        .room-header
+          span.room-name(data-bind="text: $data")
+        .room-body
+        .room-footer
+          button(data-bind="hooked_click: $root.join_room") join
+
+  .page-footer

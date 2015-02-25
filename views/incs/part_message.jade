@@ -1,0 +1,7 @@
+div
+  h2
+    | message 
+    span.btn(data-bind="click : messages.removeAll.bind(messages,undefined)")
+      | clear
+  div.msgs(data-bind="foreach: messages")
+    div.msg(data-bind="text: $data")

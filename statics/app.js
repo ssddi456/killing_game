@@ -1,8 +1,10 @@
 require([
+  './js/helpers',
   './js/lock',
   './js/player',
   './js/bindings'
 ],function(
+  helpers,
   lock,
   player,
   bindings
@@ -11,11 +13,11 @@ require([
 
   var socket = io.connect('http://localhost:8027');
   vm = {};
+  helpers(vm);
 
   socket.on('error',function() {
     console.error( arguments );
   });
-
   socket.on('stat',function( me ) {
     if( !vm.me || vm.me() ){
       (vm.me = vm.me || ko.observable())(new player( socket.id ));
@@ -32,11 +34,18 @@ require([
 
   vm.page = ko.observable('hall');
   vm.rooms = ko.observableArray([]);
+  
+  vm.night = ko.observable(true);
 
   vm.room_name = ko.observable();
   vm.roommates = ko.observableArray([]);
-  vm.messages = ko.observableArray([]);
+  vm.players = ko.observableArray([]);
 
+  vm.messages = ko.observableArray([]);
+  vm.send = vm.cancel_send = function() {};
+  
+  vm.speak_somethings = ko.observable();
+  vm.votes_targets = [];
   vm.before_click = function(){
     var me = vm.me();
     if( !me.is_roommaster() 

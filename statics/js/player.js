@@ -19,6 +19,8 @@ define([
 
     // if watch game
     this.is_ob = ko.observable(false);
+
+    this.tags = ko.observableArray(['']);
   }
   var pp =player.prototype;
   pp.sync = function( player ) {

@@ -169,9 +169,13 @@ game.call_info = {
   discribe  : '各位请陈述',
   votes     : '幸存者投票',
   end       : function( game ) {
-    if( game.actors.every(function( actor ) {
-          return actor.is('living') && actor.is('killer');
-        })
+    if( game.actors
+          .filter(function( actor ) {
+            return actor.is_not('dead')
+          })
+          .every(function( actor ) {
+            return actor.is('killer');
+          })
     ){
       return '大屠杀....';
     }

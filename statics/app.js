@@ -13,7 +13,7 @@ require([
 ){
  
 
-  var socket = io.connect('http://localhost:8027');
+  var socket = io.connect('/');
   vm = {};
   helpers(vm);
   

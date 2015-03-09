@@ -1,5 +1,6 @@
 .page(data-bind="page:'vote'")
   .page-header
+    div(data-bind="text:vote_message")
   .page-body
     table.table
       tbody(data-bind="foreach : votes_targets ")

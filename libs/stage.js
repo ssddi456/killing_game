@@ -17,7 +17,10 @@ function Stage ( optn ) {
   this.can_active_in     = [];
   this.can_not_active_in = [];
   this.can_not_be_vote_in= [];
+  this.type              = '';
+  this.name              = '';
   this.skill             = 'vote';
+  this.min_act_time      = 3e3;
   debug('new stage', optn );
   util._extend(this,optn);
 }
@@ -27,6 +30,7 @@ util._extend(Stage.prototype,{
     target.tags.push('dead');
     debug('actor dead!!!');
     debug( target );
+    return {killed : target};
   },
   get_can_active : function( actors ) {
     var self = this;
@@ -57,35 +61,62 @@ util._extend(Stage.prototype,{
     }); 
   },
   act : function( all_actors, game, done ) {
+    var self = this;
     var actors = this.get_can_active(all_actors);
-
+    var timeout = Date.now() + this.min_act_time;
+    function finish() {
+      debug('stage finish', self.type, self.name);
+      var argv = arguments;
+      var delta =  Math.max(0, timeout - Date.now());
+      setTimeout(function() {
+        done.apply(null,argv);
+      },delta);
+    }
+    debug('stage start',this.type, this.name);
     debug('actors', 
       actors.length, 
       actors.map(function(actor) {
         return [actor.id,actor.tags];
-      }) 
+      })
     );
 
     if( !actors.length ){
-      done();
+      finish();
       return;
     }
-    var self = this;
     var skill = self.skill;
     if( !skill ){
       self.settle(actors);
-      done();
+      finish();
       return;
     }
     debug('act skill', skill);
+    var act_info = {
+      stage   : self,
+      info    : self.name,
+      turns   : game.turns
+    };
     if( skill == 'speak' ){
       async.eachSeries( actors,function( actor, done ) {
-        actor.act( skill, actors, done );
-      }, done );
-      return;
+        actor.act( skill, 
+                    util._extend(act_info,{
+                      targets : actors
+                    }),
+                    function( err, words ){
+                      game.emit('speak',words);
+                      done();
+                    });
+      },finish);
     } 
     else if( skill == 'vote' ){
+      debug('vote start ', self.name);
       var can_be_votes = this.get_can_be_vote(all_actors);
+      var sub_so = game.to( 
+                    actors.filter(function( actor ) {
+                      return actor.sck;
+                    }));
+      sub_so.emit('stage_start_@' + skill);
+      var vote_times = 0;
       async.whilst(function() {
         if( can_be_votes.length <= 1 ){
           debug(
@@ -95,16 +126,29 @@ util._extend(Stage.prototype,{
             })
           );
         }
+        if( vote_times != 0 ){
+          act_info.info = self.name +', 请统一意见';
+        }
         return can_be_votes.length > 1;
-      },function( done ) {
+      },function( done ){
         // update vote cache;
         can_be_votes.forEach(function( actor ) {
           actor.temp_effect = [];
         });
         // vote
+        game.broadcast_player_stat();
         async.each(actors,function( actor, done) {
-          actor.act( skill, can_be_votes, done );
+          actor.act( skill, 
+                      util._extend(act_info,{
+                        targets : can_be_votes
+                      }),
+                      function() {
+                        // let the others know the choice
+                        sub_so.broadcast_player_stat();
+                        done();
+                      });
         },function(){
+          vote_times += 1;
           var grouped = _.groupBy(can_be_votes,
                           function( actor ) {
                             return actor.temp_effect.length;
@@ -114,8 +158,9 @@ util._extend(Stage.prototype,{
           done();
         });
       },function() {
-        can_be_votes.length && self.settle( can_be_votes[0] );
-        done();
+        sub_so.emit('stage_end_@' + skill);
+        var ret = can_be_votes.length && self.settle( can_be_votes[0] );
+        finish(null,ret);
       });
     }
   }

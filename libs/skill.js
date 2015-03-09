@@ -32,12 +32,23 @@ util._extend(Skill.prototype,{
   get_target : function( targets, done ) {
     done(null, random_data.randomItem(targets));
   },
-  cast : function( targets, done ) {
+  cast : function( optns, done ) {
     var self = this;
+    var targets = optns.targets;
+    var owner = this.owner;
     this.get_target( 
       this.get_valid_targets(targets),
       function( err, target ) {
         self.effect( target );
+
+        owner.actions.push({
+          stage: optns.stage.type,
+          info : optns.info,
+          turns: optns.turns,
+          skill: self.name,
+          does : target.id
+        });
+
         done();
       });
   }
@@ -45,31 +56,51 @@ util._extend(Skill.prototype,{
 
 Skill.speak = new Skill({
   name : 'speak',
-  cast : function( targets, done ) {
-    console.log( 'my name is ', this.owner.name );
-    done();
+  cast : function( optns, done ) {
+    var owner = this.owner;
+    var message= 'my name is ' + owner.name;
+
+    debug( message );
+
+    owner.actions.push({
+      stage: optns.stage.type,
+      info : optns.info,
+      turns: optns.turns,
+      skill: this.name,
+      does : message
+    });
+
+    done(null,{
+      id      : this.id, 
+      message : message
+    });
   }
 });
 
 Skill.vote  = new Skill({
   name : 'vote',
   effect : function( target ) {
-    target.temp_effect.push(this);
+    target.temp_effect.push(this.owner.id);
   }
 });
 
 
 Skill.create_pc_action = function( optns ) {
+  optns = optns || {};
   var name = optns.name;
   if( !name ){
     throw new Error( 'skill name must be given');
   }
   var option = {
     name : name,
-    cast : function( targets, done ) {
+    cast : function( optns, done ) {
+      var targets = optns.targets;
       var self = this;
-      var player = this.owner.player;
-      var socket = this.owner.sck;
+
+      var owner = this.owner;
+      var player = owner.player;
+      var socket = owner.sck;
+
       var vote_timer;
       var timeout = 60*1e3;
       var effect_cache;
@@ -79,15 +110,26 @@ Skill.create_pc_action = function( optns ) {
         socket.emit('end_@' + name);
         socket.removeAllListeners('@' + name);
         socket.removeAllListeners('cancel_@' + name);
-        self.effect(effect_cache);
-        done();
+        var ret = self.effect(effect_cache);
+        owner.actions.push({
+          stage: optns.stage.type,
+          info : optns.info,
+          turns: optns.turns,
+          skill: name,
+          does : effect_cache
+                  ?(effect_cache.id || effect_cache)
+                  : effect_cache
+        });
+        done(null, ret);
         end = function() {}
       }
       debug('start skill', name);
-      socket.emit('start_@' + name,
-        targets.map(function( target ) {
-          return player.see( target );
-        }));
+      socket.emit('start_@' + name,{
+          info   :optns.info,
+          targets:targets.map(function( target ) {
+                    return player.see( target );
+                  })
+        });
       socket.on( '@' + name,function( target ) {
         debug( name, target );
         effect_cache = target;
@@ -106,25 +148,27 @@ Skill.create_pc_action = function( optns ) {
 };
 
 Skill.pc_vote  = function( optns ) {
+  optns = optns || {};
   delete optns.name;
   var options = {
                   name : 'vote',
                   effect : function( target ) {
-                    target.temp_effect.push(this);
+                    target.temp_effect.push(this.owner.id);
                   }
                 };
   util._extend( options, optns );
   return Skill.create_pc_action(options);
 };
 Skill.pc_speak = function( optns ) {
+  optns = optns || {};
   delete optns.name;
   var options = {
                   name : 'speak',
-                  effect : function( message ) {
-                    this.owner.sck
-                      .to(this.owner.room)
-                      .emit('speak', message);
-                    done();
+                  effect : function( msg ) {
+                    return {
+                      id      : this.owner.id,
+                      message : msg
+                    };
                   }
                 };
   util._extend( options, optns );

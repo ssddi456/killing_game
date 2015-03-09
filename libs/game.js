@@ -2,9 +2,10 @@ var stage = require('./stage');
 var actor = require('./actor');
 var _ = require('lodash');
 var debug = require('debug')('killing_game:game');
+var game_infos = require('../imps/game_infos');
 
 var stages =  [
-                '#call::nights',
+                '#call::night',
                 '#call::killers',
                 'killers',
                 '#call::polices',
@@ -16,8 +17,7 @@ var stages =  [
                 '#ifEnd#end',
                 '#call::discribe',
                 'discribe',
-                '#call::votes',
-                'votes',
+                '#call::judgements',
                 'judgements',
                 '#ifNotEnd#loop',
                 '#call::end'
@@ -26,14 +26,17 @@ var stages =  [
 var game = {};
 
 game.stages = stages;
+game.get_call_info = function( key) {
+  if( typeof this.call_info[key] == 'function' ){
+    return this.call_info[key](this);
+  } else {
+    return this.call_info[key];
+  }  
+};
 game.command = {
   call  : function( done, key ) {
     debug('command call!');
-    if( typeof this.call_info == 'function' ){
-      debug( this.call_info[key](this) );
-    } else {
-      debug( this.call_info[key] );
-    }
+    debug( this.get_call_info(key) );
     done();
   },
   ifEnd : function( done, if_ture ) {
@@ -112,8 +115,8 @@ game.stage_sets ={
     skill : null,
     settle : function( actors ) {
       actors.forEach(function( actor ) {
-        if( _.include(actor.tags,'emergency_heal') ){
-          if( _.include(actor.tags,'fester')){
+        if( actor.is('emergency_heal') ){
+          if( actor.is('fester') ){
             actor.tags.push('dead');
             debug('actor dead!!!');
             debug( actor );
@@ -125,7 +128,7 @@ game.stage_sets ={
             actor.tags.push('fester');
           }
         } 
-        else if( _.include(actor.tags,'will_be_killed') ){
+        else if( actor.is('will_be_killed') ){
           _.remove(actor.tags,function( tag ) {
             return tag == 'will_be_killed' 
                 || tag == 'fester';
@@ -160,14 +163,15 @@ game.stage_sets ={
 
 
 game.call_info = {
-  nights    : '天黑请闭眼',
+  night     : '天黑请闭眼',
   killers   : '杀手请杀人',
   polices   : '警察请搜查',
   doctors   : '医生请救人',
   day       : '天亮请睁眼',
+
   new_deads : '死者是....',
   discribe  : '各位请陈述',
-  votes     : '幸存者投票',
+  judgements: '幸存者投票',
   end       : function( game ) {
     if( game.actors
           .filter(function( actor ) {
@@ -278,7 +282,7 @@ game.end = function() {
   debug( 'end of game!!! survivers : ', survivers );
   this.on_end( survivers );
 };
-game.create = function() {
+game.create = function( room_id, room ) {
   var ret       = Object.create(game);
   ret.stages    = Object.create(game.stages);
   ret.command   = Object.create(game.command);
@@ -297,13 +301,50 @@ game.create = function() {
     ret.stage_sets[_stage_name] = _temp;
   }
   
-
+  ret.emit= function() {
+    room.emit.apply(room,arguments);
+  };
+  console.log( room.to.toString() );
+  ret.to = function( actors ) {
+    var so = Object.create(room);
+    debug( 'build sub so ', actors );
+    var rooms = actors.map(function( actor ) {
+                  return actor.sck.id;
+                });
+    var pcs = rooms.map(function( id ) {
+                return game_infos.get_player_by_sckid(id);
+              });
+    debug( 'sub so', rooms, pcs );
+    so.rooms = rooms;
+    so.broadcast_player_stat = function( game_end ) {
+      ret.broadcast_player_stat( game_end, pcs );
+    };
+    return so;
+  }
   ret.init= function(){
     for(var _stage_name in this.stage_sets ){
       this.stage_sets[_stage_name] = new stage(this.stage_sets[_stage_name]);
+      this.stage_sets[_stage_name].type = _stage_name;
+      this.stage_sets[_stage_name].name = this.get_call_info(_stage_name);
     }
   };
-
+  ret.broadcast_player_stat = function  ( game_end, pcs ) {
+    var pcs     = pcs || game_infos.get_room_pcplayers(room_id);
+    var players = game_infos.get_roomplayers(room_id);
+    debug('-------- sync player state -------');
+    if( players.length ){
+      debug( room_id, 'exists');
+      pcs.forEach(function( player ) {
+        debug('sync player states', player.id);
+        player_maped = players.map(function( other) {
+          return player.see(other,game_end);
+        });
+        debug('player_maped', player_maped, player_maped.length );
+        player.sck.emit('list_players', player_maped);
+      });
+    }
+    debug('-------- sync player state end -------');
+  }
   ret.on_stage_end = 
   ret.on_end = function( survivers ){};
 
@@ -312,8 +353,8 @@ game.create = function() {
     var stage = this.get_stage();
     var self = this;
     if( stage ){
-      stage(function() {
-        ret.on_stage_end();
+      stage(function( err, stage_end_message ) {
+        ret.on_stage_end( err, stage_end_message );
         self.next_stage();
       });
     }

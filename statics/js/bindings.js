@@ -59,7 +59,16 @@ define([
       return ko.bindingHandlers['event']['init'].call(this, element, newValueAccessor, allBindings, viewModel, bindingContext);
     }
   };
-
+  ko.bindingHandlers.simple_animate_flow = {
+    'init':function(element, valueAccessor, allBindings, viewModel, bindingContext) {
+      var pre_stage;
+      ko.computed(function() {
+        ko.utils.toggleDomNodeCssClass(element,'stage_'+pre_stage,false);
+        var stage = pre_stage = ko.utils.unwrapObservable(valueAccessor());
+        ko.utils.toggleDomNodeCssClass(element,'stage_'+stage,true);
+      })
+    }
+  };
   function hooked_events ( eventName ) {
     ko.bindingHandlers['hooked_'+ eventName ]= {
       'init' : function(element, valueAccessor, allBindings, viewModel, bindingContext) {

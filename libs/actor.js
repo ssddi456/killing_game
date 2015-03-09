@@ -6,25 +6,22 @@ var player = require('./player');
 function Actor (opt) {
   this.name = 'stupid actor';
   this.tags = ['actor'];
+  this.actions = [];
+  this.temp_effect = [];
 
   this.add_skill(skill.speak);
   this.add_skill(skill.vote);
-
   util._extend(this,opt);
 }
 
 util._extend(Actor.prototype,{
-  act : function( skill, targets, done ) {
+  act : function( skill, optns, done ) {
     var self = this;
     var skill = this['@'+skill];
-    skill.cast(targets,done);
+    skill.cast(optns,done);
   },
-  is : function( tag ) {
-    return ~this.tags.indexOf(tag);
-  },
-  is_not : function(tag) {
-    return !~this.tags.indexOf(tag);
-  },
+  is : player.prototype.is,
+  is_not : player.prototype.is_not,
   add_skill : function( skill ) {
     skill = Object.create(skill);
     this['@' + skill.name ] = skill;

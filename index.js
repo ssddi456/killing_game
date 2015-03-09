@@ -72,21 +72,7 @@ var default_channel = 'hall';
 var public_room_prefix = game_infos.public_room_prefix;
 
 
-function broadcast_player_stat ( room ) {
-  var players = game_infos.get_roomplayers(room);
-  var pcs     = game_infos.get_room_pcplayers(room);
-  debug('-------- sync player state -------');
-  if( players.length ){
-    debug( room, 'exists');
-    pcs.forEach(function( player ) {
-      debug('sync player states', player.id);
-      var player_maped = players.map(player.see.bind(player));
-      debug('player_maped', player_maped, player_maped.length );
-      player.sck.emit('list_roommates', player_maped);
-    });
-  }
-  debug('-------- sync player state end -------');
-}
+
 
 function sync_room_stats(room) {
   io.to(room)
@@ -120,8 +106,7 @@ io.on('connection',function( socket ) {
 // 
 // 离开房间时加入大厅，通知 玩家离开
 // todos: master离开时随机转交给玩家
-// 玩家全体离开时销毁房间
-// 销毁房间时所有ob回到大厅。
+// 玩家全体离开时销毁房间(自动的)
 // 
 // 房间数目发生变化时移除通知大厅玩家，
 // 房间中玩家数目发生变化时，通知房间中其他玩家。
@@ -218,7 +203,7 @@ io.on('connection',function( socket ) {
             return !mate.is_roommaster && !mate.is_ready;
           }).length == 0
     ){
-      var game_instance = game.create();
+      var game_instance = game.create( room, io.to(room) );
       game_infos.start_game( room, game_instance );
 
       var shuffle = require('./libs/shuffle');
@@ -241,8 +226,7 @@ io.on('connection',function( socket ) {
           pc.player = mate;
           pc.role = mate.role = role;
 
-          pc.tags.push( pc.role );
-          mate.tags = pc.tags;
+          mate.tags = pc.tags = [role];
 
           debug('new pc', pc.id, pc.tags );
 
@@ -257,38 +241,37 @@ io.on('connection',function( socket ) {
               target = game_actors.filter(function( actor) {
                 return actor.id == target.id;
               })[0];
-              target.temp_effect.push(pc);
+              target.temp_effect.push(pc.id);
             }
           }));
 
-          pc.add_skill(skill.pc_speak({
-            effect : function( message ) {
-              io.to(room).emit('speak', message);
-            }
-          }));
+          pc.add_skill(skill.pc_speak());
           return pc;
         } else {
           var npc = new actor();
           npc.id = 'npc '+ random_data.String(8);
           npc.role = role;
-          npc.tags.push(role);
-          npc.tags.push('npc');
+          npc.tags=['npc',role];
           return npc;
         }
       });
+
       game_instance.command.call = function( done, key ) {
-        var infos;
-        if( typeof this.call_info[key] == 'function' ){
-          infos = this.call_info[key](this);
-        } else {
-          infos = this.call_info[key];
+        var self = this;
+        var infos = this.get_call_info(key);
+        if( key == 'day' || key == 'night' ){
+          this.emit('trans_'+key);
         }
-        io.to(room).emit('speak', infos);
-        setTimeout(done,1e3);
+        this.emit('command_start', infos);
+        setTimeout(function() {
+          self.emit('command_end');
+          done();
+        },1e3);
       };
 
       game_instance.set_actors(game_actors);
       game_instance.on_end = function( survivers ) {
+        this.broadcast_player_stat( 'game_end' );
         socket.emit('game_end');
         game_infos.end_game(room);
         game_infos.get_roomplayers( room )
@@ -296,22 +279,19 @@ io.on('connection',function( socket ) {
             player.reset();
           });
 
-        broadcast_player_stat( room );
+        sync_room_stats(room);
       };
 
       game_instance.on_stage_end = function() {
         debug(' stage name ', this.stages[this.stage_cursor] );
         debug(' stage end  ', this.stage_cursor);
         debug(' turns end  ', this.turns);
-        if( this.stages[this.stage_cursor]  == 'sunrise'
-          || this.stages[this.stage_cursor] == '#call::nights' 
-        ){
-          broadcast_player_stat( room );
-        }
+        this.broadcast_player_stat();
       };
 
       game_instance.init();
-      io.to(room).emit('game_start');
+      game_instance.emit('game_start');
+      game_instance.broadcast_player_stat();
       game_instance.run();
     } else {
       socket.emit('start_game_fail');
@@ -322,15 +302,8 @@ io.on('connection',function( socket ) {
     io.to(e.room).emit('voted','who vote on who');
   });
 
-  // socket.emit('start_vote');
-  // socket.emit('end_vote');
 
-  // socket.emit('player_dead');
-  // socket.emit('game_end');
-
-  socket.on('chats',function( e ) {
-    
-  });
 });
-
-server.listen(8027);
+var port = 8027;
+server.listen(port);
+console.log('server start at port : ', port);

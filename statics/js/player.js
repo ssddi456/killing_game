@@ -20,7 +20,26 @@ define([
     // if watch game
     this.is_ob = ko.observable(false);
 
-    this.tags = ko.observableArray(['']);
+    this.tags        = ko.observableArray([]);
+
+    this.temp_effect = ko.observableArray([]);
+
+    this.can_be_vote = ko.observable(false);
+
+    this.actions = ko.observableArray();
+
+    this.saying = ko.observable('');
+    var timer;
+    var self = this;
+    this.saying.subscribe(function( val ) {
+      if( val != '' ){
+        clearTimeout(timer);
+        timer = setTimeout(function() {
+          self.saying('');
+          timer = undefined;
+        },3e3);
+      }
+    });
   }
   var pp =player.prototype;
   pp.sync = function( player ) {
@@ -32,5 +51,8 @@ define([
       }
     }
   };
+  pp.get_pos_class = function( n, idx ) {
+    return 'crowds_with_' + n + ' pos_' + idx;
+  }
   return player;
 });

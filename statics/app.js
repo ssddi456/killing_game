@@ -1,9 +1,11 @@
 require([
+  './js/simple_animate_flow',
   './js/helpers',
   './js/lock',
   './js/player',
   './js/bindings'
 ],function(
+  simple_animate_flow,
   helpers,
   lock,
   player,
@@ -14,6 +16,8 @@ require([
   var socket = io.connect('http://localhost:8027');
   vm = {};
   helpers(vm);
+  
+  var noop = function() {};
 
   socket.on('error',function() {
     console.error( arguments );
@@ -40,9 +44,12 @@ require([
   vm.room_name = ko.observable();
   vm.roommates = ko.observableArray([]);
   vm.players = ko.observableArray([]);
+  vm.hovered_player= ko.observable();
+  
+  vm.gaming  = ko.observable(false);
 
   vm.messages = ko.observableArray([]);
-  vm.send = vm.cancel_send = function() {};
+  vm.send = vm.cancel_send = noop;
   
   vm.speak_somethings = ko.observable();
   vm.votes_targets = [];
@@ -108,22 +115,101 @@ require([
     vm.roommates.removeAll();
   });
 
-  socket.on('speak', function( msg ) {
-    vm.messages.push(msg);
+  socket.on('game_start',function() {
+    vm.page('game');
+    vm.gaming(true);
+  });
+  socket.on('game_end',function() {
+    vm.gaming(false);
   });
 
+  socket.on('trans_day',function() {
+    vm.night(false);
+  });
+  socket.on('trans_night',function() {
+    vm.night(true);
+  });
+
+  socket.on('list_players',function(players) {
+    var c_players = vm.players();
+    // 找到现有的和新增的，同步状态
+    players.forEach(function( man ) {
+      var c_player = _.find(c_players,function(player) {
+        return player.id == man.id;
+      });
+      if( c_player ){
+      } else {
+        c_player = new player();
+        vm.players.push(c_player);
+      }
+      c_player.sync(man);
+
+      var me = vm.me();
+      if( man.id == me.id ){
+        me.sync(man);
+      }
+    });
+    // 找到不再存在的，移除
+    c_players.filter(function( c_player ) {
+      return players.every(function( player ) {
+        return player.id != c_player.id;
+      });
+    }).forEach(function( c_player) {
+      vm.players.remove(c_player);
+    });
+  });
+
+  socket.on('speak', function( msg ) {
+    if( msg.id ){
+      vm.players().filter(function( player ) {
+        return player.id == msg.id;
+      }).forEach(function( player ) {
+        player.saying( msg.message );
+      });
+    }
+  });
+
+  socket.on('command_start',function( msg ) {
+    vm.command.running(0);
+    vm.command(msg);
+    vm.command.running(1);
+  });
+  socket.on('command_end',function() {
+    vm.command.running(2);
+  });
+
+  vm.command = simple_animate_flow('');
+
   function on_skill( name, handlers ) {
+    var skilling = name.replace(/e?$/,'ing');
+    vm[ skilling ] = ko.observable( false );
+
+    socket.on('stage_start_@'+name,function() {
+      vm[ skilling ] = ko.observable( true );
+    });
+
+    socket.on('stage_end_@'+name,function() {
+      vm[ skilling ] = ko.observable( false );
+    });
+
     socket.on( 'start_@' + name,function( datas ) {
-      handlers.start(datas, function( err, res ) {
-        if( err) {
+      (vm[name + '_message'] = vm[name + '_message'] || ko.observable(''))(datas.info);
+
+
+      handlers.start(datas.targets, function( err, res ) {
+        if( err ) {
           socket.emit('cancel_@' + name );
         } else {
           socket.emit('@' + name, res);
         }
       });
     });
+
     socket.on('end_@' + name,
-      handlers.finish.bind(handlers));
+      function() {
+        vm[name + '_message']('');
+        handlers.finish.call(handlers);
+      });
   }
 
   on_skill('speak',
@@ -148,12 +234,41 @@ require([
         vm.page(this.prev_page);
         vm.speak_somethings('');
         // gc reference;
+        this.prev_page = undefined;
+
         vm.send =
-        this.prev_page = 
-        vm.cancel_send = null;
+        vm.cancel_send = noop;
       }
     });
 
+  vm.can_vote = ko.observable(false);
+  vm.get_voted_class = function( $data ) {
+    //
+    // 如果不在投票环节就跳过。
+    // 如果在投票环节，
+    //   如果目标不能被投，
+    //     返回不可用
+    //   如果目标能够被投，并且自己还可以投票，
+    //     返回可用
+    //   如果自己已经投过，并且目标被投过票
+    //     返回被投了
+    //
+    console.log( vm.voting(), $data.can_be_vote(), vm.can_vote() );
+    if( !vm.voting() ){
+
+    } else {
+      if( !$data.can_be_vote() ){
+        return 'disable';
+      }
+      if( vm.can_vote() ){
+        return 'enable';
+      } 
+      if( $data.temp_effect.length ){
+        return 'voted';
+      }
+    }
+    return '';
+  };
   on_skill('vote',
     {
       start  : function( targets, done ) {
@@ -162,26 +277,30 @@ require([
           _lock.lock();
           done.apply(null,arguments);
         });
-        vm.votes_targets = ko.observableArray(targets);
 
+        vm.players().forEach(function( player ) {
+          var target = targets.filter(function( target ) {
+            return target.id == player.id;
+          });
+          player.can_be_vote( target.length != 0 );
+        });
+
+        vm.can_vote(true);
         vm.send = _lock(function( $data ) {
+                    vm.can_vote(false);
                     end( null, $data );
                   });
         vm.cancel_send =_lock(function() {
+                          vm.can_vote(false);
                           end( 'canceled' );
                         });
-        
-        this.prev_page = vm.page();
-        vm.page('vote');
       },
       finish :function() {
-        vm.page( this.prev_page );
-        this.prev_page =
-        vm.votes_targets =
         vm.send =
-        vm.cancel_send = null;
+        vm.cancel_send = noop;
       }
     });
 
   ko.applyBindings(vm);
+  window.vm = vm;
 });

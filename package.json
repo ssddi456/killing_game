@@ -1,0 +1,14 @@
+{
+  "dependencies" : {
+    "async" : "latest",
+    "body-parser" : "latest",
+    "cookie-session" : "latest",
+    "debug" : "latest",
+    "express" : "latest",
+    "less" : "latest",
+    "lodash" : "latest",
+    "random_data" : "latest",
+    "socket.io" : "latest",
+    "underscore" : "latest"
+  }
+}

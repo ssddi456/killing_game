@@ -15,7 +15,7 @@
         span(data-bind="text: id")
         span(data-bind="text: is_roommaster ? '房主' : '' ")
         span(data-bind="text: role ")
-        span(data-bind="text: tags ")
+        span(data-bind="text: is_ready ? '已准备' : '' ")
 
   .page-footer
     button(data-bind="hooked_click: leave_room") leave room

@@ -215,7 +215,6 @@ require([
   on_skill('speak',
     {
       start  : function( nss, done) {
-        this.prev_page = vm.page();
         var _lock = lock();
         var end = _lock(function() {
           _lock.lock();
@@ -228,13 +227,11 @@ require([
         vm.cancel_send =_lock(function() {
                           end( 'canceled' );
                         });
-        vm.page('speak');
+
       },
       finish :function() {
-        vm.page(this.prev_page);
+
         vm.speak_somethings('');
-        // gc reference;
-        this.prev_page = undefined;
 
         vm.send =
         vm.cancel_send = noop;

@@ -17,6 +17,8 @@ html,body{
   font-weight: bold;
   color: @text_color;
   background-color: @page_bg;
+  height: 100%;
+  width: 100%;
 }
 
 button,.btn{
@@ -38,12 +40,14 @@ button,.btn{
 .pull-right{
   float: right;
 }
-.wrapper{
-  width: @page_width;
-  margin: 0 auto;
+body{
+  display: flex;
+  flex-flow: column;
+  justify-content: space-between;
+}
+.g-header{
+  order:1;
   padding-top:20px;
-  height: 100px;
-  position: relative;
   > h1{
     text-align: center;
   }
@@ -52,40 +56,64 @@ button,.btn{
     > div{
       margin-bottom: 20px;
     }
-
   }
+}
+.g-content{
+  order:2;
+  flex:auto;
+
+  display: flex;
+  flex-flow:row;
   > .left{
-    width: @left*100%;
+    flex:4 0;
     float: left;
+    display: flex;
+    flex-flow: column;
+    align-content: space-between;
+    margin: 0 20px;
+    >h1{
+      order:1;
+    }
+    >.page{
+      order:2;
+      flex:4;
+    }
   }
   > .right{
-    width: (1-@left)*100%;
+    flex:1 0;
     float: left;
   }
 }
 
 .page{
-  height: 100%;
   overflow: auto;
+  display: flex;
+  flex-flow: column;
   .page-header{
+    width: 100%;
     padding: 10px 0;
     overflow: auto;
     text-align: center;
+    align-self:flex-start;
   }
   .page-body{
+    flex: auto;
+    width: 100%;
     padding: 10px 0;
     overflow: auto;
-    height: 550px;
+    align-self:center;
   }
   .page-footer{
+    width: 100%;
     overflow: auto;
     padding: 20px 0;
     margin-left: -10px;
+    align-self:flex-end;
   }
 }
 .msgs{
   padding-left:5px;
-  height: 600px;
+  overflow: auto;
   .msg{
     padding: 5px;
     word-break: break-all;
@@ -249,7 +277,7 @@ button,.btn{
 }
 .players{
   position: relative;
-  height: 550px;
+  height: 0.8 * 550px;
   overflow: hidden;
 
   &.voting{
@@ -292,26 +320,6 @@ button,.btn{
       .tag{
         padding: 0 2px;
       }
-      // &:after,
-      // &:before{
-      //   display: block;
-      //   width: 0;
-      //   height: 0;
-      //   position: absolute;
-      //   content: '';
-      //   border-right: @hexagon_height solid transparent;
-      //   border-left: @hexagon_height solid transparent;
-      // }
-      // &:before{
-      //   top: -1 * @hexagon_half_height;
-      //   border-bottom: @hexagon_half_height + 2px solid @hexagon_bg;
-      //   border-top: 0;
-      // }
-      // &:after{
-      //   bottom: -1 * @hexagon_half_height;
-      //   border-top: @hexagon_half_height + 2px solid @hexagon_bg;
-      //   border-bottom: 0;
-      // }
     }
     .loop_chars( @char )when( @char>=2){
       @degs:360/@char;
@@ -350,6 +358,33 @@ button,.btn{
     .get_sun_and_moon(@h:500px, @w:@page_width);
   }
 }
+
+.console{
+  overflow: auto;
+  height: 550px * 0.2;
+  .role{
+    float: left;
+    height: 100%;
+    width: 39%;
+  }
+  .messager{
+    width: 60%;
+    height: 100%;
+    float: left;
+    .speak-wrapper{
+      width: 100%;
+      height: 60%;
+      textarea {
+        height: 100%;
+        width: 100%;
+      }
+    }
+    .btns{
+      overflow: auto;
+    }
+  }
+}
+
 .roommates-header{
   background: darken(@block_bg, 10%);
   height: 20px;

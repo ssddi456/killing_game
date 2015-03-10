@@ -3,15 +3,16 @@ html
   head
     link(rel="stylesheet", type="text/css", href="resource/app.less")
     link(rel="stylesheet", type="text/css", href="http://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css")
+    title MAFIA
   body
-    .wrapper
+    .g-header
       h1 MAFIA
-
+      // ko if:tools
       div.toolbar
         div
           label goto page :
           div
-            each page in ['hall','room','speak','vote','game']
+            each page in ['hall','room','game']
               button(data-bind="click:page.bind(null,'#{page}')")= page
         div
           label room func :
@@ -21,6 +22,10 @@ html
           div
             button(data-bind="toggle:night") toggle_night
             button(data-bind="click:random_saying") random_saying
+            each value in ['speaking','voting']
+              button(data-bind="click:toggle_skill_stage('#{value}')") #{value}
+      // /ko
+    .g-content
       block content
   
     script(src="/socket.io/socket.io.js")

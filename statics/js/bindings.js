@@ -32,8 +32,10 @@ define([
               ko.virtualElements.setDomNodeChildren(element, cloneNodes(savedNodes));
             }
             ko.applyBindingsToDescendants(bindingContext, element);
+            element.style.display = 'flex';
           } else {
             ko.virtualElements.emptyNode(element);
+            element.style.display = 'none';
           }
 
           didDisplayOnLastUpdate = shouldDisplay;

@@ -6,6 +6,12 @@ define([
   random_data
 ){
   return function( vm ) {
+    vm.tools= ko.observable(false);
+    vm.toggle_skill_stage = function( key ) {
+      return function() {
+        vm[key](!vm[key]());
+      }
+    };
     vm.add_room = function() {
       vm.rooms.push(
         random_data.String(16));

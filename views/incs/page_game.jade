@@ -1,13 +1,23 @@
 mixin tag_snippet()
   div(data-bind="foreach:tags")
-    span.tag(data-bind="css:{\
-      'ion-ios-person' : $data == 'actor',\
-      'ion-android-contact' : $data == 'killer',\
-      'ion-ios-bell' : $data == 'police',\
-      'ion-ios-flask' : $data == 'doctor',\
-      'ion-android-cancel' : $data == 'dead',\
-      'ion-eye' : $data == 'known_by_police',\
-    }")
+    span.tag
+      i(data-bind="css:{\
+          'ion-ios-person' : $data == 'actor',\
+          'ion-android-contact' : $data == 'killer',\
+          'ion-ios-bell' : $data == 'police',\
+          'ion-ios-flask' : $data == 'doctor',\
+          'ion-android-cancel' : $data == 'dead',\
+          'ion-eye' : $data == 'known_by_police',\
+        }")
+      span(data-bind="text:\
+            $data == 'actor' ? '平民'\
+          : $data == 'killer' ? '杀手'\
+          : $data == 'police' ? '警察'\
+          : $data == 'doctor' ? '医生'\
+          : $data == 'dead' ? '死了'\
+          : $data == 'known_by_police' ? '已侦查'\
+          : ''\
+        }")
 .page(data-bind="page:'game'")
   .page-header
     h1(data-bind="text: room_name")
@@ -70,6 +80,18 @@ mixin tag_snippet()
               span(data-bind="text:$root.command")
             .right(data-bind="simple_animate_flow:$root.command.running")
               span(data-bind="text:$root.command")
+          
+        .console
+          .role(data-bind="text:me.role")
+          .messager
+            .speak-wrapper(data-bind="if : speaking")
+              textarea(data-bind="value:speak_somethings")
+            .btns
+              // ko if : speaking
+              button(data-bind="click:send") send
+              button(data-bind="click:cancel_send") cancel send
+              // /ko
+              // ko if: !$root.gaming()
+              button(data-bind="click:$root.page.bind(null,'room')") back to room
+              // /ko
   .page-footer
-    div(data-bind="if:!$root.gaming()")
-      button(data-bind="click:$root.page.bind(null,'room')") back to room

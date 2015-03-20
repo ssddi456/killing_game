@@ -74,6 +74,7 @@ pp.get_stat = function() {
     room          : this.room || '',
     is_ready      : this.is_ready || false,
     is_ob         : this.is_ob || false,
+    name          : this.name,
     id            : this.id,
     tags          : this.tags.slice(0),
     actions       : this.actions.slice(0),

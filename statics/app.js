@@ -185,11 +185,11 @@ require([
     vm[ skilling ] = ko.observable( false );
 
     socket.on('stage_start_@'+name,function() {
-      vm[ skilling ] = ko.observable( true );
+      vm[ skilling ]( true );
     });
 
     socket.on('stage_end_@'+name,function() {
-      vm[ skilling ] = ko.observable( false );
+      vm[ skilling ]( false );
     });
 
     socket.on( 'start_@' + name,function( datas ) {
@@ -215,6 +215,7 @@ require([
   on_skill('speak',
     {
       start  : function( nss, done) {
+        console.log( 'speaking', vm.speaking() );
         var _lock = lock();
         var end = _lock(function() {
           _lock.lock();

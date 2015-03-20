@@ -97,12 +97,16 @@ util._extend(Stage.prototype,{
       turns   : game.turns
     };
     if( skill == 'speak' ){
+      debug('speak start');
       async.eachSeries( actors,function( actor, done ) {
+        debug('speak on', actor.id );
+        actor.sck && actor.sck.emit('stage_start_@speak');
         actor.act( skill, 
                     util._extend(act_info,{
                       targets : actors
                     }),
                     function( err, words ){
+                      actor.sck && actor.sck.emit('stage_end_@speak');
                       game.emit('speak',words);
                       done();
                     });
@@ -138,6 +142,7 @@ util._extend(Stage.prototype,{
         // vote
         game.broadcast_player_stat();
         async.each(actors,function( actor, done) {
+
           actor.act( skill, 
                       util._extend(act_info,{
                         targets : can_be_votes

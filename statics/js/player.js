@@ -5,6 +5,7 @@ define([
 ){
   function player ( id ) {
     this.id  = id;
+    this.name = ko.observable('');
     // boolean
     this.is_roommaster = ko.observable(false);
 
@@ -29,6 +30,9 @@ define([
     this.actions = ko.observableArray();
 
     this.saying = ko.observable('');
+
+    this.buffers = ko.observableArray([]);
+
     var timer;
     var self = this;
     this.saying.subscribe(function( val ) {
@@ -41,8 +45,12 @@ define([
       }
     });
   }
+
+  var role_tags = ['actor','killer','police','docter'];
+
   var pp =player.prototype;
   pp.sync = function( player ) {
+    var self = this;
     for(var k in player){
       if( player.hasOwnProperty(k) ){
         typeof this[k] == 'function' 
@@ -50,6 +58,14 @@ define([
                 : this[k] = player[k];
       }
     }
+
+    this.buffers.removeAll()
+    this.tags().forEach(function( tag ) {
+      if( !~role_tags.indexOf(tag) ){
+        self.buffers.push( tag );
+      };
+    })
+
   };
   pp.get_pos_class = function( n, idx ) {
     return 'crowds_with_' + n + ' pos_' + idx;

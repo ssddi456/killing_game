@@ -3,24 +3,27 @@ var actor = require('./actor');
 var _ = require('lodash');
 var debug = require('debug')('killing_game:game');
 var game_infos = require('../imps/game_infos');
+var async = require('async');
+var random_chinese_name = require('./random_chinese_name');
 
-var stages =  [
-                '#call::night',
-                '#call::killers',
+var stages =  [ 
+                'gain_player_name',
+                'call.night',
+                'call.killers',
                 'killers',
-                '#call::polices',
+                'call.polices',
                 'polices',
-                '#call::doctors',
+                'call.doctors',
                 'doctors',
-                '#call::day',
+                'call.day',
                 'sunrise',
-                '#ifEnd#end',
-                '#call::discribe',
+                'ifEnd#end',
+                'call.discribe',
                 'discribe',
-                '#call::judgements',
+                'call.judgements',
                 'judgements',
-                '#ifNotEnd#loop',
-                '#call::end'
+                'ifNotEnd#loop',
+                'call.end'
               ];
 
 var game = {};
@@ -28,64 +31,94 @@ var game = {};
 game.stages = stages;
 game.get_call_info = function( key) {
   if( typeof this.call_info[key] == 'function' ){
-    return this.call_info[key](this);
+    try{
+      return this.call_info[key](this);
+    } catch(e){
+      debug('get_call_info failed', e);
+      return key;
+    }
   } else {
     return this.call_info[key];
   }  
 };
-game.command = {
-  call  : function( done, key ) {
-    debug('command call!');
-    debug( this.get_call_info(key) );
-    done();
+game.stage_sets ={
+  call  : {
+    act : function(  all_actors, game, key, done  ) {
+      debug('command call!');
+      debug( game.get_call_info(key) );
+      done();
+    }
   },
-  ifEnd : function( done, if_ture ) {
-    var living_killer = this.grouped_actors.killer
-                          .filter(function(actor) {
-                            return !_.include(actor.tags,'dead');
-                          });
-    var living_non_killer= this.grouped_actors.non_killer
+  ifEnd : {
+    act : function(  all_actors, game, if_true, if_not_true ) {
+      var living_killer = game.grouped_actors.killer
                             .filter(function(actor) {
                               return !_.include(actor.tags,'dead');
                             });
-    debug('check livings');
-    debug('living_killer     : ', living_killer.length);
-    debug('living_non_killer : ', living_non_killer.length);
-    debug('');
-    if( living_killer.length != 0
-      &&living_non_killer.length != 0
-    ){
-      debug('game wont end');
-      done();
-    } else {
-      debug('game will end');
-      if_ture( done );
+      var living_non_killer= game.grouped_actors.non_killer
+                              .filter(function(actor) {
+                                return !_.include(actor.tags,'dead');
+                              });
+      debug('check livings');
+      debug('living_killer     : ', living_killer.length);
+      debug('living_non_killer : ', living_non_killer.length);
+      debug('');
+      if( living_killer.length != 0
+        &&living_non_killer.length != 0
+      ){
+        debug('game wont end');
+        if_not_true();
+      } else {
+        debug('game will end');
+        if_true( if_not_true );
+      }
     }
   },
-  ifNotEnd : function( done, if_ture ) {
-    this.command.ifEnd.call(this,function() {
-      if_ture(done);
-    },function(){
+  ifNotEnd : {
+    act : function(  all_actors, game, if_true, if_not_true ) {
+      var ifEnd = game.stage_sets.ifEnd;
+      ifEnd.act(all_actors,game,
+        function(){
+          if_not_true();
+        },
+        function(){
+          if_true(if_not_true);
+        });
+    }
+  },
+  loop : {
+    act : function(  all_actors, game, done ) {
+      debug('----');
+      debug('---- round', game.turns, 'end' );
+      var survivers = game.actors.filter(function( actor ) {
+        return !_.include(actor.tags,'dead');
+      });
+      debug('---- survivers', survivers );
+      game.turns += 1;
+      game.stage_cursor = 0;
       done();
-    });
+    }
   },
-  loop : function( done ) {
-    debug('----');
-    debug('---- round', this.turns, 'end' );
-    var survivers = this.actors.filter(function( actor ) {
-      return !_.include(actor.tags,'dead');
-    });
-    debug('---- survivers', survivers );
-    this.turns += 1;
-    this.stage_cursor = 0;
-    done();
+  end  : {
+    act : function(  all_actors, game, done ) {
+      game.stage_cursor = game.stages.length - 2;
+      done();
+    }
   },
-  end  : function( done ) {
-    this.stage_cursor = this.stages.length - 2;
-    done();
-  }
-};
-game.stage_sets ={
+  gain_player_name : {
+    act : function( all_actors, game, done ) {
+      async.each(all_actors,
+        function( actor, done ){
+          random_chinese_name(function(err,name){
+            actor.name = name || '';
+            if( err ){
+              debug('create random_name failed', name );
+            }
+            done();
+          })
+        },done);
+    }
+  },
   killers    : {
     can_active_in : ['killer'],
     can_not_active_in : ['dead'],
@@ -191,49 +224,59 @@ game.parse_stage = function( str ) {
   var ret;
   debug('stage', str );
   var self = this;
-  str.replace(/^(#([^#:]+)(#(.+)|::(.+))?)|([^#:]+)$/,
+  var cmd = {};
+
+  str.replace(/^(([^#.]+)(#(.+)|\.(.+))?)|([^#.]+)$/,
     function(
       $,
       full_commands,
-      command_name,
+      stage_name,
       command_body,
       secondary_command_name,
       command_argv,
       stage
     ){
       // debug('full_commands          :' , full_commands);
-      // debug('command_name           :' , command_name);
+      // debug('stage_name             :' , stage_name);
       // debug('command_body           :' , command_body);
       // debug('secondary_command_name :' , secondary_command_name);
       // debug('command_argv           :' , command_argv);
       // debug('stage                  :' , stage);
 
-      if( stage ){
-        ret = self.stage_sets[stage];
-        if( !ret ){
-          ret = function( done ) {
-            done();
-          };
-        } else {
-          ret = ret.act.bind(ret, self.actors, self );
-        }
-      } else if ( command_name && command_argv ){
-        ret = function( done ) {
-          debug('command ', command_name);
-          self.command[command_name].call(self, done, command_argv);
-        };
-      } else if ( command_name && secondary_command_name ){
-        ret = function( done ) {
-          debug('command ', command_name);
-          debug('secondary_command_name', secondary_command_name);
-          self.command[command_name].call( self, done, 
-            self.command[secondary_command_name].bind(self));
-        };
-      }
+      cmd.stage = stage || stage_name;
+      cmd.command_argv = command_argv;
+      cmd.secondary_command_name = secondary_command_name;
     });
-  return ret;
+  return this.build_stage(cmd);
 };
+game.build_stage = function( parse_stage_cmd ){
+  var self = this;
+  debug( 'parse_stage_cmd', parse_stage_cmd );
+  var stage =self.stage_sets[parse_stage_cmd.stage];
+  if( !stage ){
+    return function( done ) {
+      done();
+    };
+  }
+  var args = [self.actors,self];
+  var ret = function ( done ){
+    args.push(done);
+    stage.act.apply(stage,args);
+  }
 
+  if ( parse_stage_cmd.secondary_command_name ){
+    debug('build_stage add secondary_command_name', parse_stage_cmd.secondary_command_name );
+    // for if_true and if_not_true
+    args.push(function( done ){
+      self.parse_stage(parse_stage_cmd.secondary_command_name)(done);
+    });
+  } 
+  if( parse_stage_cmd.command_argv ){
+    debug('build_stage add command_argv', parse_stage_cmd.command_argv );
+    args.push(parse_stage_cmd.command_argv);
+  }
+  return ret;
+}
 game.set_actors = function( actors ) {
   this.actors = actors;
   this.grouped_actors = _.groupBy( this.actors ,function( actor ) {
@@ -265,6 +308,7 @@ game.next_stage = function () {
   var self = this;
   var stage = this.get_stage();
   if( stage ){
+    debug( ':::: next stage ::::', stage.name);
     stage(function() {
       self.on_stage_end();
       self.next_stage();
@@ -285,7 +329,6 @@ game.end = function() {
 game.create = function( room_id, room ) {
   var ret       = Object.create(game);
   ret.stages    = Object.create(game.stages);
-  ret.command   = Object.create(game.command);
   ret.call_info = Object.create(game.call_info);
   ret.stage_sets= Object.create(game.stage_sets);
 
@@ -304,7 +347,7 @@ game.create = function( room_id, room ) {
   ret.emit= function() {
     room.emit.apply(room,arguments);
   };
-  console.log( room.to.toString() );
+
   ret.to = function( actors ) {
     var so = Object.create(room);
     debug( 'build sub so ', actors );
@@ -335,11 +378,11 @@ game.create = function( room_id, room ) {
     if( players.length ){
       debug( room_id, 'exists');
       pcs.forEach(function( player ) {
-        debug('sync player states', player.id);
+        // debug('sync player states', player.id);
         player_maped = players.map(function( other) {
           return player.see(other,game_end);
         });
-        debug('player_maped', player_maped, player_maped.length );
+        // debug('player_maped', player_maped, player_maped.length );
         player.sck.emit('list_players', player_maped);
       });
     }

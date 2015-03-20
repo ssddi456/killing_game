@@ -1,4 +1,4 @@
-process.env.DEBUG = 'killing_game:*';
+process.env.DEBUG = 'killing_game:* -killing_game:player';
 var path = require('path');
 var fs = require('fs');
 var path = require('path');
@@ -256,17 +256,18 @@ io.on('connection',function( socket ) {
         }
       });
 
-      game_instance.command.call = function( done, key ) {
-        var self = this;
-        var infos = this.get_call_info(key);
-        if( key == 'day' || key == 'night' ){
-          this.emit('trans_'+key);
-        }
-        this.emit('command_start', infos);
-        setTimeout(function() {
-          self.emit('command_end');
-          done();
-        },1e3);
+      game_instance.stage_sets.call = {
+        act : function( all_actors, game, key, done ) {
+                var infos = game.get_call_info(key);
+                if( key == 'day' || key == 'night' ){
+                  game.emit('trans_'+key);
+                }
+                game.emit('command_start', infos);
+                setTimeout(function() {
+                  game.emit('command_end');
+                  done();
+                },1e3);
+              }
       };
 
       game_instance.set_actors(game_actors);

@@ -82,7 +82,35 @@ pp.get_stat = function() {
   };
 };
 
+var tags_can_only_be_seen_by = {
+  will_be_killed : ['killer'],
+  known_by_police : ['police'],
+  fester : ['doctor']
+};
+
+var role_can_only_seen_when = function( another, me ){
+  if( another.id == me.id ){
+    return true;
+  }
+  if( another.is('dead') ){
+    return true;
+  }
+  if( another.is('known_by_police') 
+    && me.is('police') 
+  ){
+    return true
+  }
+  if( another.role == me.role ){
+    if( another.role !='actor' ){
+      return true;
+    }
+    return false;
+  }
+  return false;
+};
+
 pp.see = function( another, game_end ) {
+  var self = this;
   var stat = another.get_stat 
               ? another.get_stat() 
               : another;
@@ -93,59 +121,17 @@ pp.see = function( another, game_end ) {
     return stat;
   }
 
-  debug('check tags', this.tags, another.tags );
-  debug('check role', this.role, another.role );
-  debug( ' - will see', stat.role );
-  debug( this.id, another.id );
-  debug( ' - is_ob', this.is_ob, another.is_ob );
-
-  debug( ' - is_dead', 
-    this.is('dead')
-    && another.is('dead'));
-
-  debug( ' - not actor', 
-    this.role == another.role 
-    && this.role != 'actor' );
-
-  debug( ' - inspected', 
-    another.is('known_by_police')
-    && this.role == 'police' );
-
-  debug( ' - same person', 
-    this.id == another.id);
-
-  var inbrief = this.is_ob 
-                || another.is_ob
-                || this.is('dead')
-                || another.is('dead')
-                || (this.role == another.role 
-                  && this.role != 'actor')
-                || (another.is('known_by_police')
-                  && this.role == 'police' )
-                || this.id == another.id;
-
-  debug(' - inbrief', inbrief  );
-
-  if( inbrief ){
-    if( !game_end ){
-      if( this.is_not('doctor') ){
-        stat.tags = _.without(stat.tags,'fester');
-      }
-      if( this.is_not('police') ){
-        stat.tags = _.without(stat.tags,'known_by_police');
-      }
-      if( this.is_not('killer') ){
-        stat.tags = _.without(stat.tags,'will_be_killed');
-      }
+  var temp_role = stat.role;
+  stat.role = role_can_only_seen_when( another, this ) ?  stat.role : 'unknown';
+  stat.tags = stat.tags.filter(function( tag ){
+    return !tags_can_only_be_seen_by[tag] 
+          || tags_can_only_be_seen_by[tag].some(self.is.bind(self));
+  }).map(function( tag ){
+    if( tag == temp_role ){
+      return stat.role;
     }
-  } else {
-    stat.role = 'unknown';
-    var _tags = ['unknown'];
-    if( another.is('fester') && this.is('doctor') ){
-      _tags.push('fester');
-    }
-    stat.tags = _tags;
-  }
+    return tag;
+  });
 
   // 死者可以看到所有场景的动作
   // 其他人可以看到同角色的所有动作

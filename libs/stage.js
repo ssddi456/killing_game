@@ -49,14 +49,17 @@ util._extend(Stage.prototype,{
       }
     });
   },
-  get_can_be_vote: function( actors ) {
+  get_can_be_vote: function( actors, me ) {
     var self = this;
     return actors.filter(function( actor ) {
       debug('check can be vote', actor.tags, self.can_not_be_vote_in);
       if( _.intersection( actor.tags, self.can_not_be_vote_in ).length ){
         return false;
       } else {
-        return true;
+        if( me && actor.id != me.id ){
+          return false;
+        }
+        return true
       }
     }); 
   },
@@ -68,6 +71,7 @@ util._extend(Stage.prototype,{
       debug('stage finish', self.type, self.name);
       var argv = arguments;
       var delta =  Math.max(0, timeout - Date.now());
+      finish = function() {}
       setTimeout(function() {
         done.apply(null,argv);
       },delta);

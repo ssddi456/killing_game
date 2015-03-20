@@ -82,13 +82,13 @@ pp.get_stat = function() {
   };
 };
 
-var tags_can_only_be_seen_by = {
+pp.tags_can_only_be_seen_by = {
   will_be_killed : ['killer'],
   known_by_police : ['police'],
   fester : ['doctor']
 };
 
-var role_can_only_seen_when = function( another, me ){
+pp.role_can_only_seen_when = function( another, me ){
   if( another.id == me.id ){
     return true;
   }
@@ -122,10 +122,10 @@ pp.see = function( another, game_end ) {
   }
 
   var temp_role = stat.role;
-  stat.role = role_can_only_seen_when( another, this ) ?  stat.role : 'unknown';
+  stat.role = this.role_can_only_seen_when( another, this ) ?  stat.role : 'unknown';
   stat.tags = stat.tags.filter(function( tag ){
-    return !tags_can_only_be_seen_by[tag] 
-          || tags_can_only_be_seen_by[tag].some(self.is.bind(self));
+    return !self.tags_can_only_be_seen_by[tag] 
+          || self.tags_can_only_be_seen_by[tag].some(self.is.bind(self));
   }).map(function( tag ){
     if( tag == temp_role ){
       return stat.role;

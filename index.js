@@ -203,7 +203,10 @@ io.on('connection',function( socket ) {
             return !mate.is_roommaster && !mate.is_ready;
           }).length == 0
     ){
+
       var game_instance = game.create( room, io.to(room) );
+      game_instance.load_game('mafia');
+
       game_infos.start_game( room, game_instance );
 
       var shuffle = require('./libs/shuffle');
@@ -255,20 +258,6 @@ io.on('connection',function( socket ) {
           return npc;
         }
       });
-
-      game_instance.stage_sets.call = {
-        act : function( all_actors, game, key, done ) {
-                var infos = game.get_call_info(key);
-                if( key == 'day' || key == 'night' ){
-                  game.emit('trans_'+key);
-                }
-                game.emit('command_start', infos);
-                setTimeout(function() {
-                  game.emit('command_end');
-                  done();
-                },1e3);
-              }
-      };
 
       game_instance.set_actors(game_actors);
       game_instance.on_end = function( survivers ) {

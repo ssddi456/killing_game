@@ -13,16 +13,35 @@ var pc_judgement = skill.create_pc_action({
 });
 
 // 
-// tags : officer lurker dead
+// tags : mc officer lurker dead
 // 
 
 game.stages = [
   'init',
+  'give_words',
   'describe',
   'describe',
   'judgement'
 ];
 
+var actor_list= [ 
+                  'mc',
+                  'officer',
+                  'officer',
+                  'lurker',
+                  'officer',
+                  'officer',
+                  'lurker',
+                  'lurker',
+                  'officer',
+                  'lurker',
+                  'officer',
+                  'officer',
+                  'lurker',
+                  'lurker',
+                  'officer',
+                  'lurker'
+                ];
 
 game.stage_sets = {
   template_stage  : {
@@ -82,5 +101,5 @@ game.stage_sets = {
 }
 
 game.init = function(){
-  
+
 }

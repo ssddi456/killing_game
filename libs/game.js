@@ -1,5 +1,3 @@
-var stage = require('./stage');
-var actor = require('./actor');
 var _ = require('lodash');
 var debug = require('debug')('killing_game:game');
 var game_infos = require('../imps/game_infos');
@@ -69,21 +67,7 @@ game.build_stage = function( parse_stage_cmd ){
 }
 game.set_actors = function( actors ) {
   this.actors = actors;
-  this.grouped_actors = _.groupBy( this.actors ,function( actor ) {
-                          for(var i = 0, n = actor.tags.length,tag;
-                            tag = actor.tags[i],i < n;
-                            i++
-                          ){
-                            if( tag == 'killer' ){
-                              return tag;
-                            }
-                          }
-                          return 'non_killer';
-                        });
 }
-game.stage_cursor = 0;
-game.stage_count = stages.length;
-game.turns       = 0;
 
 game.get_stage = function() {
   var cur_stage_desc = this.stages[this.stage_cursor];
@@ -118,10 +102,7 @@ game.end = function() {
 };
 game.create = function( room_id, room ) {
   var ret       = Object.create(game);
-  ret.stages    = Object.create(game.stages);
-  ret.call_info = Object.create(game.call_info);
-  ret.stage_sets= Object.create(game.stage_sets);
-
+  
   ret.load_game = function( name ){
     var game_configs = require('./games/' + name );
     for(var k in game_configs){
@@ -129,6 +110,9 @@ game.create = function( room_id, room ) {
         this[k] = game_configs[k];
       }
     }
+    this.stage_cursor = 0;
+    this.stage_count = this.stages.length;
+    this.turns       = 0;
   };
 
   ret.emit= function() {

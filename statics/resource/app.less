@@ -1,14 +1,14 @@
 @page_width:960px;
 @left:0.8;
-@block_bg:#24535B;
+@block_bg:#eee;
 @page_bg:lighten(@block_bg, 20%);
 
-@block_bdr:#52B8A6;
+@block_bdr:#aaa;
 @block_bdr_l:darken(@block_bdr, 10%);
 
-@btn_bg:#24535B;
+@btn_bg:#ccc;
 @btn_bg_h:lighten(@btn_bg,10%);
-@text_color:#DAA825;
+@text_color:#000;
 
 html,body{
   padding: 0;
@@ -60,28 +60,15 @@ body{
 }
 .g-content{
   order:2;
+  margin: 0 auto;
+  width: @page_width;
   flex:auto;
-
-  display: flex;
-  flex-flow:row;
-  > .left{
-    flex:4 0;
-    float: left;
-    display: flex;
-    flex-flow: column;
-    align-content: space-between;
-    margin: 0 20px;
-    >h1{
-      order:1;
-    }
-    >.page{
-      order:2;
-      flex:4;
-    }
+  >h1{
+    order:1;
   }
-  > .right{
-    flex:1 0;
-    float: left;
+  >.page{
+    order:2;
+    flex:4;
   }
 }
 
@@ -93,7 +80,6 @@ body{
     width: 100%;
     padding: 10px 0;
     overflow: auto;
-    text-align: center;
     align-self:flex-start;
   }
   .page-body{
@@ -132,39 +118,30 @@ body{
 
 }
 .room{
-  width: 48%;
-  float: left;
   background: @block_bg;
-  margin: 10px 1% 0;
+  &:nth-of-type(even){
+    background: darken(@block_bg, 10%);
+  }
+
+  padding: 5px 10px;
   overflow: auto;
   opacity: 0.8;
+  line-height: 30px;
 
-  .room-header{
-    padding: 5px;
-    background-color: darken(@block_bg, 10%);
-    span.room-name{
-      font-size: 20px;
-    }
-    overflow: auto;
+  span.room-name{
+    font-size: 20px;
   }
-  .room-body{
-    overflow: auto;
-    padding: 10px;
-  }
-  .room-footer{
-    overflow: auto;
-    padding: 5px;
-    text-align: right;
-    button{
-      visibility: hidden;
-      background-color: darken(@block_bg, 10%);
-    }
+
+  button{
+    visibility: hidden;
+    background-color: darken(@block_bg, 20%);
+    float: right;
   }
   &:hover {
     opacity: 1;
     color : lighten(@text_color, 10%);
     box-shadow: 0 0 20px lighten(@block_bg, 40%);
-    .room-footer button{
+    button{
       visibility: visible;
       &:hover{
         box-shadow: 0 0 20px lighten(@block_bg, 40%);
@@ -179,7 +156,7 @@ body{
   @night_trans_time : 0.5s;
   width: 2*@radius;
   height: 2*@radius;
-  left : 0.5*0.8*@w - @radius;
+  left : 0.5*@w - @radius;
   top  : 0.5*@h - 45px;
 
   background: @hexagon_bg;
@@ -277,9 +254,8 @@ body{
 }
 .players{
   position: relative;
-  height: 0.8 * 550px;
-  overflow: hidden;
-
+  @container_height:400px;
+  height: @container_height+40px;
   &.voting{
     .player{
       &.enable{
@@ -302,9 +278,9 @@ body{
     @hexagon_half_height : 0.5 * @hexagon_height;
     @hexagon_width  : @hexagon_height * 2 - 2px;
     position: absolute;
-    left : 0.5*0.8*@page_width - @hexagon_height;
+    left : 0.5*@page_width - @hexagon_height;
     top  : @hexagon_half_height - 30px;
-    transform-origin : 50% 0.5*500px;
+    transform-origin : 50% 0.5*@container_height;
     width: @hexagon_width - 2px;
     padding: 2px;
     .content{
@@ -355,7 +331,7 @@ body{
     }
   }
   .sun_and_moon{
-    .get_sun_and_moon(@h:500px, @w:@page_width);
+    .get_sun_and_moon(@h:@container_height, @w:@page_width);
   }
 }
 
@@ -407,12 +383,6 @@ body{
         width: 1em;
       }
       &:nth-of-type(2){
-        width: 10em;
-      }
-      &:nth-of-type(3){
-        width: 4em;
-      }
-      &:nth-of-type(4){
         width: 4em;
       }
     }
@@ -497,7 +467,7 @@ body{
     }
     &.stage_2{
       span{
-        top:75%;
+        top:90%;
         transform:scale(0.5);
         -webkit-transform:scale(0.5);
       }
@@ -505,7 +475,7 @@ body{
     span{
       position: relative;
       display: inline-block;
-      top:50%;
+      top:90%;
       font-size: 40px;
       transform:scale(1);
       -webkit-transform:scale(1);

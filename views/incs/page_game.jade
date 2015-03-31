@@ -7,9 +7,9 @@ mixin buffer_snippet()
           'ion-ios-medical'    : $data == 'fester'\
         }")
       span(data-bind="text:\
-            $data == 'dead' ? '死了'\
-          : $data == 'known_by_police' ? '已侦查'\
-          : $data == 'fester' ? '已中毒'\
+            $data == 'dead' ? '死了 '\
+          : $data == 'known_by_police' ? '已侦查 '\
+          : $data == 'fester' ? '已中毒 '\
           : ''\
         ")
 
@@ -36,6 +36,13 @@ mixin role_snippet()
     div(data-bind="css:{night:night}")
       .theme_1
         .players(data-bind="css:{ voting : voting }")
+          .sun_and_moon
+            .shadow
+            each k in '12345678'
+              .star
+                .edges
+                  each i in '1234'
+                    .edge
           // ko foreach : players
           .player(data-bind='event:{\
                     "mouseenter" : $root.hovered_player.bind(null),\
@@ -47,8 +54,8 @@ mixin role_snippet()
                   ')
             .content
               div
-                span(data-bind="if: (id + '') == $root.me().id")
-                  | <这是我>
+                span(data-bind="if: (name(),id + '') == $root.me().id")
+                  |  这是我
                 span.name(data-bind="text: name")
               +role_snippet()
               +buffer_snippet()
@@ -63,13 +70,6 @@ mixin role_snippet()
               div(data-bind="text: ' 说：   ' + saying() ")
               // /ko
           // /ko
-          .sun_and_moon
-            .shadow
-            each k in '12345678'
-              .star
-                .edges
-                  each i in '1234'
-                    .edge
 
           // ko if:hovered_player
           .player-action

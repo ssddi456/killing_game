@@ -1,4 +1,6 @@
 var debug = require('debug')('killing_game:game_name');
+var stage = require('../stage');
+
 var game = module.exports;
 
 game.stages = [

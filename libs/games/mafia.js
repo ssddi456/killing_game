@@ -1,6 +1,8 @@
-var random_chinese_name = require('./random_chinese_name');
+var random_chinese_name = require('../random_chinese_name');
 var async = require('async');
 var debug = require('debug')('killing_game:mafia');
+var stage = require('../stage');
+var _ = require('lodash');
 
 var stages =  [ 
                 'gain_player_name',
@@ -113,10 +115,10 @@ game.stage_sets ={
       async.each(all_actors,
         function( actor, done ){
           random_chinese_name(function(err,name){
-            actor.name = name || '';
             if( err ){
               debug('create random_name failed', name );
             }
+            actor.name = err ? actor.id : name;
             done();
           })
         },done);
@@ -222,6 +224,21 @@ game.call_info = {
 
     return '正义的力量';
   }
+};
+
+game.set_actors = function( actors ) {
+  this.actors = actors;
+  this.grouped_actors = _.groupBy( this.actors ,function( actor ) {
+                          for(var i = 0, n = actor.tags.length,tag;
+                            tag = actor.tags[i],i < n;
+                            i++
+                          ){
+                            if( tag == 'killer' ){
+                              return tag;
+                            }
+                          }
+                          return 'non_killer';
+                        });
 };
 
 game.init= function(){

@@ -48,7 +48,6 @@ require([
   
   vm.gaming  = ko.observable(false);
 
-  vm.messages = ko.observableArray([]);
   vm.send = vm.cancel_send = noop;
   
   vm.speak_somethings = ko.observable();

@@ -120,9 +120,6 @@ io.on('connection',function( socket ) {
     player.room = room;
     return socket.__proto__.join.apply(this,arguments);
   };
-  socket.leave = function( room ) {
-    return socket.__proto__.leave.apply(this,arguments);
-  };
 
   socket.on('join_room',function( e ){
     socket.leave(default_channel);
@@ -287,13 +284,8 @@ io.on('connection',function( socket ) {
       socket.emit('start_game_fail');
     }
   });
-
-  socket.on('vote',function( e ) {
-    io.to(e.room).emit('voted','who vote on who');
-  });
-
-
 });
+
 var port = 8027;
 server.listen(port);
 console.log('server start at port : ', port);

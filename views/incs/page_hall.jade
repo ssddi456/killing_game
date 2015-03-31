@@ -9,10 +9,7 @@
   .page-body
     .rooms(data-bind="foreach: rooms")
       .room
-        .room-header
-          span.room-name(data-bind="text: $data")
-        .room-body
-        .room-footer
-          button(data-bind="hooked_click: $root.join_room") join
+        span.room-name(data-bind="text: $data")
+        button(data-bind="hooked_click: $root.join_room") join
 
   .page-footer
